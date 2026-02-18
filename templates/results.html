@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sonuclar - UBL-TR Fatura Ayiklayici</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f0f2f5; }
+        .navbar-custom {
+            background: linear-gradient(135deg, #2F5496, #1a365d);
+        }
+        .stat-card {
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .stat-card .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #2F5496;
+        }
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            padding: 20px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+        }
+        .table thead th {
+            background: #2F5496;
+            color: white;
+            position: sticky;
+            top: 0;
+            white-space: nowrap;
+            font-size: 13px;
+        }
+        .table tbody td {
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        .nav-tabs .nav-link {
+            color: #2F5496;
+            font-weight: 500;
+        }
+        .nav-tabs .nav-link.active {
+            color: #1a365d;
+            font-weight: 700;
+            border-color: #2F5496 #2F5496 #fff;
+        }
+        .detail-modal .modal-body { max-height: 70vh; overflow-y: auto; }
+        .detail-table th { width: 200px; background: #f8fafc; }
+        .badge-invoice { background: #2F5496; }
+        .error-box {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 16px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-custom navbar-dark px-4 mb-4">
+        <a class="navbar-brand" href="/">UBL-TR Fatura Ayiklayici</a>
+        <div>
+            <a href="/" class="btn btn-outline-light btn-sm me-2">Yeni Yukle</a>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+        <!-- Özet istatistikler -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card stat-card p-3">
+                    <div class="stat-value">{{ invoices|length }}</div>
+                    <div class="text-muted">Toplam Fatura</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card p-3">
+                    <div class="stat-value">{{ line_items|length }}</div>
+                    <div class="text-muted">Toplam Kalem</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card p-3">
+                    <div class="stat-value">{{ errors|length }}</div>
+                    <div class="text-muted text-{{ 'danger' if errors else 'muted' }}">Hata</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card p-3 text-center">
+                    <form action="/export" method="POST" enctype="multipart/form-data" id="exportForm">
+                        <input type="file" name="zipfile" id="reuploadFile" class="d-none">
+                        <button type="button" class="btn btn-success btn-lg w-100" onclick="exportExcel()">
+                            &#128229; Excel'e Aktar
+                        </button>
+                    </form>
+                    <small class="text-muted mt-1">{{ filename }}</small>
+                </div>
+            </div>
+        </div>
+
+        {% if errors %}
+        <div class="error-box mb-4">
+            <h6 class="text-danger">Hatalar ({{ errors|length }})</h6>
+            {% for err in errors %}
+            <div><strong>{{ err.dosya }}:</strong> {{ err.hata }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Sekmeler -->
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#tabSummary">Fatura Ozeti</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tabLines">Fatura Kalemleri</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tabDetail">Detayli Goruntule</a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- Fatura Özeti Tablosu -->
+            <div class="tab-pane fade show active" id="tabSummary">
+                <div class="table-container">
+                    {% if flat_data %}
+                    <table id="summaryTable" class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                {% set all_keys = [] %}
+                                {% for row in flat_data %}
+                                    {% for key in row.keys() %}
+                                        {% if key not in all_keys %}
+                                            {% if all_keys.append(key) %}{% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for key in all_keys %}
+                                <th>{{ key }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in flat_data %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                {% for key in all_keys %}
+                                <td>{{ row.get(key, '') }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-muted text-center py-4">Fatura bulunamadi.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Fatura Kalemleri Tablosu -->
+            <div class="tab-pane fade" id="tabLines">
+                <div class="table-container">
+                    {% if line_items %}
+                    <table id="linesTable" class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                {% set line_keys = [] %}
+                                {% for row in line_items %}
+                                    {% for key in row.keys() %}
+                                        {% if key not in line_keys %}
+                                            {% if line_keys.append(key) %}{% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for key in line_keys %}
+                                <th>{{ key }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in line_items %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                {% for key in line_keys %}
+                                <td>{{ row.get(key, '') }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-muted text-center py-4">Fatura kalemi bulunamadi.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Detaylı Görüntüleme -->
+            <div class="tab-pane fade" id="tabDetail">
+                {% for inv in invoices %}
+                <div class="table-container mb-3">
+                    <h5 class="mb-3">
+                        <span class="badge badge-invoice bg-primary">{{ loop.index }}</span>
+                        Fatura: {{ inv.get('Fatura No', 'Bilinmiyor') }}
+                        <small class="text-muted ms-2">{{ inv.get('Fatura Tarihi', '') }}</small>
+                    </h5>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Genel Bilgiler</h6>
+                            <table class="table table-sm table-bordered">
+                                {% for key, val in inv.items() %}
+                                    {% if not key.startswith('_') and not key.startswith('Satici') and not key.startswith('Alici') and not key.startswith('Vergi') and val %}
+                                    <tr>
+                                        <th class="detail-table" style="width:200px; background:#f8fafc;">{{ key }}</th>
+                                        <td>{{ val }}</td>
+                                    </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-success">Satici Bilgileri</h6>
+                            <table class="table table-sm table-bordered">
+                                {% for key, val in inv.items() %}
+                                    {% if key.startswith('Satici') and val %}
+                                    <tr>
+                                        <th style="width:200px; background:#f0fdf4;">{{ key|replace('Satici ', '') }}</th>
+                                        <td>{{ val }}</td>
+                                    </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </table>
+
+                            <h6 class="text-info mt-3">Alici Bilgileri</h6>
+                            <table class="table table-sm table-bordered">
+                                {% for key, val in inv.items() %}
+                                    {% if key.startswith('Alici') and val %}
+                                    <tr>
+                                        <th style="width:200px; background:#eff6ff;">{{ key|replace('Alici ', '') }}</th>
+                                        <td>{{ val }}</td>
+                                    </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Vergi Bilgileri -->
+                    {% set has_tax = [] %}
+                    {% for key in inv.keys() %}
+                        {% if key.startswith('Vergi') %}
+                            {% if has_tax.append(1) %}{% endif %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if has_tax %}
+                    <h6 class="text-warning mt-3">Vergi Bilgileri</h6>
+                    <table class="table table-sm table-bordered">
+                        {% for key, val in inv.items() %}
+                            {% if key.startswith('Vergi') and val %}
+                            <tr>
+                                <th style="width:200px; background:#fffbeb;">{{ key }}</th>
+                                <td>{{ val }}</td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </table>
+                    {% endif %}
+
+                    <!-- Kalemler -->
+                    {% if inv.get('_kalemler') %}
+                    <h6 class="text-secondary mt-3">Fatura Kalemleri ({{ inv['_kalemler']|length }} kalem)</h6>
+                    <div style="overflow-x:auto;">
+                        <table class="table table-sm table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    {% set item_keys = [] %}
+                                    {% for item in inv['_kalemler'] %}
+                                        {% for key in item.keys() %}
+                                            {% if key not in item_keys %}
+                                                {% if item_keys.append(key) %}{% endif %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endfor %}
+                                    {% for key in item_keys %}
+                                    <th>{{ key }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in inv['_kalemler'] %}
+                                <tr>
+                                    {% for key in item_keys %}
+                                    <td>{{ item.get(key, '') }}</td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            if ($('#summaryTable tbody tr').length > 0) {
+                $('#summaryTable').DataTable({
+                    language: {
+                        search: "Ara:",
+                        lengthMenu: "_MENU_ kayit goster",
+                        info: "_TOTAL_ kayittan _START_ - _END_ arasi",
+                        infoEmpty: "Kayit yok",
+                        infoFiltered: "(_MAX_ kayit icinden filtrelendi)",
+                        paginate: { first: "Ilk", last: "Son", next: "Sonraki", previous: "Onceki" }
+                    },
+                    scrollX: true,
+                    pageLength: 25
+                });
+            }
+            if ($('#linesTable tbody tr').length > 0) {
+                $('#linesTable').DataTable({
+                    language: {
+                        search: "Ara:",
+                        lengthMenu: "_MENU_ kayit goster",
+                        info: "_TOTAL_ kayittan _START_ - _END_ arasi",
+                        infoEmpty: "Kayit yok",
+                        infoFiltered: "(_MAX_ kayit icinden filtrelendi)",
+                        paginate: { first: "Ilk", last: "Son", next: "Sonraki", previous: "Onceki" }
+                    },
+                    scrollX: true,
+                    pageLength: 25
+                });
+            }
+        });
+
+        // Excel export: re-upload the original file
+        const originalFileName = "{{ filename }}";
+        function exportExcel() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.zip';
+            input.onchange = function() {
+                if (input.files.length > 0) {
+                    const form = document.getElementById('exportForm');
+                    const dt = new DataTransfer();
+                    dt.items.add(input.files[0]);
+                    document.getElementById('reuploadFile').files = dt.files;
+                    form.submit();
+                }
+            };
+            // Show a message
+            if (confirm('Excel\'e aktarmak icin ZIP dosyanizi tekrar secmeniz gerekiyor.\nDevam etmek istiyor musunuz?')) {
+                input.click();
+            }
+        }
+    </script>
+</body>
+</html>
