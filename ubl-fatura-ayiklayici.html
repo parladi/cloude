@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UBL-TR Fatura Ayiklayici</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { background: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        /* Upload Page */
+        .upload-wrapper { max-width: 620px; margin: 60px auto; }
+        .upload-card { border: none; border-radius: 14px; box-shadow: 0 4px 28px rgba(0,0,0,0.08); overflow: hidden; }
+        .upload-header { background: linear-gradient(135deg, #2F5496, #1a365d); color: #fff; padding: 28px; text-align: center; }
+        .upload-header h3 { margin: 0 0 4px; font-weight: 700; }
+        .upload-header p { margin: 0; opacity: .75; font-size: 14px; }
+        .upload-body { padding: 28px; }
+        .drop-zone {
+            border: 2px dashed #cbd5e1; border-radius: 10px; padding: 44px 20px;
+            text-align: center; cursor: pointer; transition: .25s; background: #f8fafc;
+        }
+        .drop-zone:hover, .drop-zone.drag-over { border-color: #2F5496; background: #eff6ff; }
+        .drop-icon { font-size: 52px; color: #94a3b8; }
+        .file-badge {
+            display: none; margin-top: 14px; padding: 10px 16px; background: #ecfdf5;
+            border-radius: 6px; color: #065f46; font-size: 14px;
+        }
+        .btn-main { background: #2F5496; border: none; font-weight: 600; }
+        .btn-main:hover { background: #1a365d; }
+        .features-row { max-width: 620px; margin: 18px auto; }
+        .feat-box { padding: 14px; background: #fff; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,0.05); text-align: center; }
+        .feat-box small { color: #64748b; font-size: 12px; }
+
+        /* Results Page */
+        .results-page { display: none; }
+        .top-bar { background: linear-gradient(135deg, #2F5496, #1a365d); padding: 12px 24px; color: #fff; display: flex; align-items: center; justify-content: space-between; }
+        .top-bar h5 { margin: 0; font-weight: 600; }
+        .stat-card { border: none; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 16px; }
+        .stat-val { font-size: 30px; font-weight: 700; color: #2F5496; }
+        .stat-label { color: #64748b; font-size: 13px; }
+        .table-box { background: #fff; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 20px; margin-bottom: 20px; overflow-x: auto; }
+        .table thead th { background: #2F5496; color: #fff; white-space: nowrap; font-size: 12px; position: sticky; top: 0; }
+        .table tbody td { font-size: 12px; white-space: nowrap; }
+        .nav-tabs .nav-link { color: #2F5496; font-weight: 500; }
+        .nav-tabs .nav-link.active { color: #1a365d; font-weight: 700; border-color: #2F5496 #2F5496 #fff; }
+        .detail-block { background: #fff; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 20px; margin-bottom: 16px; }
+        .section-title { font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+        .detail-block .table th { background: #f8fafc; width: 200px; font-size: 12px; }
+        .detail-block .table td { font-size: 12px; }
+        .error-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+        .spinner-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(255,255,255,.85);
+            z-index: 9999; justify-content: center; align-items: center; flex-direction: column;
+        }
+        .spinner-overlay.show { display: flex; }
+    </style>
+</head>
+<body>
+
+<!-- Spinner -->
+<div class="spinner-overlay" id="spinner">
+    <div class="spinner-border text-primary" style="width:3rem;height:3rem;" role="status"></div>
+    <p class="mt-3 fw-bold text-primary" id="spinnerText">Faturalar ayiklaniyor...</p>
+</div>
+
+<!-- ==================== UPLOAD PAGE ==================== -->
+<div id="uploadPage">
+    <div class="upload-wrapper">
+        <div class="upload-card card">
+            <div class="upload-header">
+                <h3>UBL-TR Fatura Ayiklayici</h3>
+                <p>GIB e-Fatura ZIP dosyalarindan fatura bilgilerini ayiklayin</p>
+            </div>
+            <div class="upload-body">
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-icon">&#128230;</div>
+                    <h5>ZIP Dosyanizi Secin veya Surukleyin</h5>
+                    <p class="text-muted mb-0">GIB e-Fatura UBL XML dosyalarini iceren ZIP</p>
+                    <p class="text-muted small">Maksimum 100 MB</p>
+                    <input type="file" id="fileInput" accept=".zip" class="d-none">
+                </div>
+                <div class="file-badge" id="fileBadge">
+                    <strong>Secilen dosya:</strong> <span id="fName"></span>
+                    <span class="float-end" id="fSize"></span>
+                </div>
+                <div class="d-grid gap-2 mt-3">
+                    <button class="btn btn-main btn-primary btn-lg" id="btnStart" disabled>
+                        Faturalari Ayikla ve Goruntule
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="features-row">
+            <div class="row g-3">
+                <div class="col-4"><div class="feat-box"><div style="font-size:22px">&#128196;</div><small>ZIP icindeki XML'leri okur</small></div></div>
+                <div class="col-4"><div class="feat-box"><div style="font-size:22px">&#128202;</div><small>Tum fatura alanlarini ayiklar</small></div></div>
+                <div class="col-4"><div class="feat-box"><div style="font-size:22px">&#128203;</div><small>Excel'e aktarma destegi</small></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== RESULTS PAGE ==================== -->
+<div class="results-page" id="resultsPage">
+    <div class="top-bar">
+        <h5>UBL-TR Fatura Ayiklayici</h5>
+        <div>
+            <button class="btn btn-outline-light btn-sm me-2" onclick="goBack()">Yeni Yukle</button>
+            <button class="btn btn-success btn-sm" onclick="exportExcel()">&#128229; Excel'e Aktar</button>
+        </div>
+    </div>
+
+    <div class="container-fluid px-4 mt-3">
+        <!-- Stats -->
+        <div class="row g-3 mb-3" id="statsRow">
+            <div class="col-md-3"><div class="stat-card"><div class="stat-val" id="statInvoices">0</div><div class="stat-label">Toplam Fatura</div></div></div>
+            <div class="col-md-3"><div class="stat-card"><div class="stat-val" id="statLines">0</div><div class="stat-label">Toplam Kalem</div></div></div>
+            <div class="col-md-3"><div class="stat-card"><div class="stat-val" id="statErrors">0</div><div class="stat-label" id="statErrorLabel">Hata</div></div></div>
+            <div class="col-md-3"><div class="stat-card text-center"><div class="stat-val" id="statFile" style="font-size:14px;color:#64748b;"></div><div class="stat-label">Dosya Adi</div></div></div>
+        </div>
+
+        <div id="errorContainer"></div>
+
+        <!-- Tabs -->
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabSummary">Fatura Ozeti</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabLines">Fatura Kalemleri</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabDetail">Detayli Goruntule</a></li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="tabSummary"><div class="table-box" id="summaryBox"></div></div>
+            <div class="tab-pane fade" id="tabLines"><div class="table-box" id="linesBox"></div></div>
+            <div class="tab-pane fade" id="tabDetail"><div id="detailBox"></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<script>
+/* ===========================
+   GLOBAL STATE
+   =========================== */
+let parsedInvoices = [];
+let parsedErrors = [];
+let currentFileName = '';
+
+/* ===========================
+   FILE UPLOAD HANDLING
+   =========================== */
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileBadge = document.getElementById('fileBadge');
+const btnStart = document.getElementById('btnStart');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; onFileSelect(); }
+});
+fileInput.addEventListener('change', onFileSelect);
+
+function onFileSelect() {
+    const f = fileInput.files[0];
+    if (!f) return;
+    document.getElementById('fName').textContent = f.name;
+    document.getElementById('fSize').textContent = formatBytes(f.size);
+    fileBadge.style.display = 'block';
+    btnStart.disabled = false;
+}
+
+btnStart.addEventListener('click', processZip);
+
+function formatBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(1) + ' MB';
+}
+
+/* ===========================
+   UBL-TR XML PARSER
+   =========================== */
+const NS = {
+    cac: 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
+    cbc: 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2',
+};
+
+function txt(parent, xpath) {
+    if (!parent) return '';
+    const parts = xpath.split('/');
+    let node = parent;
+    for (const part of parts) {
+        if (!node) return '';
+        const [prefix, local] = part.split(':');
+        const ns = NS[prefix] || '';
+        const children = node.children;
+        let found = null;
+        for (let i = 0; i < children.length; i++) {
+            if (children[i].localName === local && (!ns || children[i].namespaceURI === ns)) {
+                found = children[i]; break;
+            }
+        }
+        node = found;
+    }
+    return node && node.textContent ? node.textContent.trim() : '';
+}
+
+function findEl(parent, xpath) {
+    if (!parent) return null;
+    const parts = xpath.split('/');
+    let node = parent;
+    for (const part of parts) {
+        if (!node) return null;
+        const [prefix, local] = part.split(':');
+        const ns = NS[prefix] || '';
+        let found = null;
+        for (let i = 0; i < node.children.length; i++) {
+            if (node.children[i].localName === local && (!ns || node.children[i].namespaceURI === ns)) {
+                found = node.children[i]; break;
+            }
+        }
+        node = found;
+    }
+    return node;
+}
+
+function findAll(parent, localName, ns) {
+    if (!parent) return [];
+    const result = [];
+    for (let i = 0; i < parent.children.length; i++) {
+        if (parent.children[i].localName === localName && (!ns || parent.children[i].namespaceURI === ns)) {
+            result.push(parent.children[i]);
+        }
+    }
+    return result;
+}
+
+function parseParty(partyWrapper) {
+    if (!partyWrapper) return {};
+    const party = findEl(partyWrapper, 'cac:Party');
+    if (!party) return {};
+    const info = {};
+
+    const pid = findEl(party, 'cac:PartyIdentification/cbc:ID');
+    if (pid) {
+        info['VKN/TCKN'] = pid.textContent.trim();
+        info['Kimlik Tipi'] = pid.getAttribute('schemeID') || '';
+    }
+    info['Ad'] = txt(party, 'cac:PartyName/cbc:Name');
+    info['Vergi Dairesi'] = txt(party, 'cac:PartyTaxScheme/cac:TaxScheme/cbc:Name');
+
+    const addr = findEl(party, 'cac:PostalAddress');
+    if (addr) {
+        info['Il'] = txt(addr, 'cbc:CityName');
+        info['Ilce'] = txt(addr, 'cbc:CitySubdivisionName');
+        info['Sokak'] = txt(addr, 'cbc:StreetName');
+        info['Bina No'] = txt(addr, 'cbc:BuildingNumber');
+        info['Posta Kodu'] = txt(addr, 'cbc:PostalZone');
+        info['Ulke'] = txt(addr, 'cac:Country/cbc:Name');
+    }
+
+    const contact = findEl(party, 'cac:Contact');
+    if (contact) {
+        info['Telefon'] = txt(contact, 'cbc:Telephone');
+        info['Fax'] = txt(contact, 'cbc:Telefax');
+        info['E-posta'] = txt(contact, 'cbc:ElectronicMail');
+    }
+
+    const person = findEl(party, 'cac:Person');
+    if (person) {
+        const fn = txt(person, 'cbc:FirstName');
+        const ln = txt(person, 'cbc:FamilyName');
+        info['Kisi Adi'] = (fn + ' ' + ln).trim();
+    }
+    return info;
+}
+
+function parseInvoiceLines(root) {
+    const lines = [];
+    for (const lineEl of findAll(root, 'InvoiceLine', NS.cac)) {
+        const line = {};
+        line['Kalem No'] = txt(lineEl, 'cbc:ID');
+        line['Miktar'] = txt(lineEl, 'cbc:InvoicedQuantity');
+        const qtyEl = findEl(lineEl, 'cbc:InvoicedQuantity');
+        if (qtyEl) line['Birim'] = qtyEl.getAttribute('unitCode') || '';
+        line['Kalem Tutari'] = txt(lineEl, 'cbc:LineExtensionAmount');
+
+        const taxT = findEl(lineEl, 'cac:TaxTotal');
+        if (taxT) {
+            line['Kalem KDV Tutari'] = txt(taxT, 'cbc:TaxAmount');
+            const sub = findEl(taxT, 'cac:TaxSubtotal');
+            if (sub) {
+                line['KDV Orani (%)'] = txt(sub, 'cbc:Percent');
+                line['KDV Matrah'] = txt(sub, 'cbc:TaxableAmount');
+            }
+        }
+
+        const allowance = findEl(lineEl, 'cac:AllowanceCharge');
+        if (allowance) {
+            line['Indirim Tutari'] = txt(allowance, 'cbc:Amount');
+            line['Indirim Orani (%)'] = txt(allowance, 'cbc:MultiplierFactorNumeric');
+        }
+
+        const item = findEl(lineEl, 'cac:Item');
+        if (item) {
+            line['Urun Adi'] = txt(item, 'cbc:Name');
+            line['Aciklama'] = txt(item, 'cbc:Description');
+            const sellerCode = findEl(item, 'cac:SellersItemIdentification/cbc:ID');
+            if (sellerCode) line['Satici Urun Kodu'] = sellerCode.textContent.trim();
+        }
+
+        const price = findEl(lineEl, 'cac:Price');
+        if (price) line['Birim Fiyat'] = txt(price, 'cbc:PriceAmount');
+
+        lines.push(line);
+    }
+    return lines;
+}
+
+function parseSingleInvoice(xmlStr, filename) {
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xmlStr, 'text/xml');
+        const root = doc.documentElement;
+
+        if (root.querySelector('parsererror')) {
+            return { _error: true, dosya: filename, hata: 'XML parse hatasi' };
+        }
+
+        const inv = {};
+        inv['Dosya Adi'] = filename;
+        inv['Fatura No'] = txt(root, 'cbc:ID');
+        inv['UUID'] = txt(root, 'cbc:UUID');
+        inv['Fatura Tarihi'] = txt(root, 'cbc:IssueDate');
+        inv['Fatura Saati'] = txt(root, 'cbc:IssueTime');
+        inv['Fatura Tipi'] = txt(root, 'cbc:InvoiceTypeCode');
+        inv['Para Birimi'] = txt(root, 'cbc:DocumentCurrencyCode');
+        inv['Profil ID'] = txt(root, 'cbc:ProfileID');
+        inv['Ozellestirme ID'] = txt(root, 'cbc:CustomizationID');
+        inv['Kopya Gostergesi'] = txt(root, 'cbc:CopyIndicator');
+        inv['Satir Sayisi'] = txt(root, 'cbc:LineCountNumeric');
+
+        // Notes
+        const notes = [];
+        for (const n of findAll(root, 'Note', NS.cbc)) {
+            if (n.textContent) notes.push(n.textContent.trim());
+        }
+        inv['Notlar'] = notes.join(' | ');
+
+        // Invoice period
+        const period = findEl(root, 'cac:InvoicePeriod');
+        if (period) {
+            inv['Donem Baslangic'] = txt(period, 'cbc:StartDate');
+            inv['Donem Bitis'] = txt(period, 'cbc:EndDate');
+        }
+
+        // Order reference
+        inv['Siparis No'] = txt(root, 'cac:OrderReference/cbc:ID');
+
+        // Despatch refs
+        const despRefs = findAll(root, 'DespatchDocumentReference', NS.cac);
+        inv['Irsaliye Referanslari'] = despRefs.map(r => txt(r, 'cbc:ID')).filter(Boolean).join(', ');
+
+        // Supplier
+        const supplier = parseParty(findEl(root, 'cac:AccountingSupplierParty'));
+        for (const [k, v] of Object.entries(supplier)) inv['Satici ' + k] = v;
+
+        // Customer
+        const customer = parseParty(findEl(root, 'cac:AccountingCustomerParty'));
+        for (const [k, v] of Object.entries(customer)) inv['Alici ' + k] = v;
+
+        // Payment means
+        const pm = findEl(root, 'cac:PaymentMeans');
+        if (pm) {
+            inv['Odeme Sekli Kodu'] = txt(pm, 'cbc:PaymentMeansCode');
+            inv['Odeme Kanali'] = txt(pm, 'cbc:PaymentChannelCode');
+            inv['Vade Tarihi'] = txt(pm, 'cbc:PaymentDueDate');
+            inv['Odeme Notu'] = txt(pm, 'cbc:InstructionNote');
+            const fa = findEl(pm, 'cac:PayeeFinancialAccount');
+            if (fa) {
+                inv['Banka Hesap No'] = txt(fa, 'cbc:ID');
+                inv['Sube Adi'] = txt(fa, 'cac:FinancialInstitutionBranch/cbc:Name');
+            }
+        }
+
+        // Payment terms
+        const pt = findEl(root, 'cac:PaymentTerms');
+        if (pt) {
+            inv['Odeme Kosulu'] = txt(pt, 'cbc:Note');
+        }
+
+        // Tax totals
+        const taxTotals = findAll(root, 'TaxTotal', NS.cac);
+        let taxIdx = 1;
+        for (const tt of taxTotals) {
+            inv['Toplam KDV Tutari'] = txt(tt, 'cbc:TaxAmount');
+            for (const sub of findAll(tt, 'TaxSubtotal', NS.cac)) {
+                inv['Vergi ' + taxIdx + ' - Vergi Matrahi'] = txt(sub, 'cbc:TaxableAmount');
+                inv['Vergi ' + taxIdx + ' - Vergi Tutari'] = txt(sub, 'cbc:TaxAmount');
+                inv['Vergi ' + taxIdx + ' - Vergi Orani (%)'] = txt(sub, 'cbc:Percent');
+                const ts = findEl(sub, 'cac:TaxCategory/cac:TaxScheme');
+                if (ts) {
+                    inv['Vergi ' + taxIdx + ' - Vergi Turu'] = txt(ts, 'cbc:Name');
+                    inv['Vergi ' + taxIdx + ' - Vergi Kodu'] = txt(ts, 'cbc:TaxTypeCode');
+                }
+                taxIdx++;
+            }
+        }
+
+        // Monetary totals
+        const mt = findEl(root, 'cac:LegalMonetaryTotal');
+        if (mt) {
+            inv['Satir Toplami'] = txt(mt, 'cbc:LineExtensionAmount');
+            inv['Vergiler Dahil Toplam'] = txt(mt, 'cbc:TaxInclusiveAmount');
+            inv['Vergiler Haric Toplam'] = txt(mt, 'cbc:TaxExclusiveAmount');
+            inv['Indirim Toplami'] = txt(mt, 'cbc:AllowanceTotalAmount');
+            inv['Odenecek Tutar'] = txt(mt, 'cbc:PayableAmount');
+        }
+
+        // Invoice lines
+        inv._kalemler = parseInvoiceLines(root);
+
+        return inv;
+    } catch (e) {
+        return { _error: true, dosya: filename, hata: e.message };
+    }
+}
+
+/* ===========================
+   ZIP PROCESSING
+   =========================== */
+async function processZip() {
+    const file = fileInput.files[0];
+    if (!file) return;
+    currentFileName = file.name;
+
+    showSpinner('Faturalar ayiklaniyor...');
+
+    try {
+        const zip = await JSZip.loadAsync(file);
+        parsedInvoices = [];
+        parsedErrors = [];
+
+        const xmlFiles = Object.keys(zip.files).filter(n => n.toLowerCase().endsWith('.xml'));
+
+        if (xmlFiles.length === 0) {
+            hideSpinner();
+            alert('ZIP dosyasinda XML dosyasi bulunamadi.');
+            return;
+        }
+
+        let processed = 0;
+        for (const name of xmlFiles) {
+            const content = await zip.files[name].async('string');
+            const result = parseSingleInvoice(content, name);
+            if (result._error) {
+                parsedErrors.push(result);
+            } else {
+                parsedInvoices.push(result);
+            }
+            processed++;
+            document.getElementById('spinnerText').textContent =
+                `Ayiklaniyor... ${processed} / ${xmlFiles.length}`;
+        }
+
+        renderResults();
+        hideSpinner();
+    } catch (e) {
+        hideSpinner();
+        alert('ZIP dosyasi okuma hatasi: ' + e.message);
+    }
+}
+
+/* ===========================
+   RENDER RESULTS
+   =========================== */
+function renderResults() {
+    document.getElementById('uploadPage').style.display = 'none';
+    document.getElementById('resultsPage').style.display = 'block';
+
+    const allLines = getAllLines();
+
+    // Stats
+    document.getElementById('statInvoices').textContent = parsedInvoices.length;
+    document.getElementById('statLines').textContent = allLines.length;
+    document.getElementById('statErrors').textContent = parsedErrors.length;
+    if (parsedErrors.length > 0) document.getElementById('statErrorLabel').classList.add('text-danger');
+    document.getElementById('statFile').textContent = currentFileName;
+
+    // Errors
+    if (parsedErrors.length > 0) {
+        let html = '<div class="error-box"><h6 class="text-danger">Hatalar (' + parsedErrors.length + ')</h6>';
+        for (const e of parsedErrors) html += '<div><strong>' + esc(e.dosya) + ':</strong> ' + esc(e.hata) + '</div>';
+        html += '</div>';
+        document.getElementById('errorContainer').innerHTML = html;
+    }
+
+    // Summary table
+    renderFlatTable('summaryBox', getFlatData(), 'summaryDT');
+
+    // Lines table
+    renderFlatTable('linesBox', allLines, 'linesDT');
+
+    // Detail view
+    renderDetailView();
+}
+
+function getFlatData() {
+    return parsedInvoices.map(inv => {
+        const row = {};
+        for (const [k, v] of Object.entries(inv)) {
+            if (k !== '_kalemler') row[k] = v;
+        }
+        return row;
+    });
+}
+
+function getAllLines() {
+    const all = [];
+    for (const inv of parsedInvoices) {
+        const fNo = inv['Fatura No'] || '';
+        const fTarih = inv['Fatura Tarihi'] || '';
+        for (const line of (inv._kalemler || [])) {
+            all.push({ 'Fatura No': fNo, 'Fatura Tarihi': fTarih, ...line });
+        }
+    }
+    return all;
+}
+
+function collectKeys(rows) {
+    const keys = [];
+    for (const row of rows) {
+        for (const k of Object.keys(row)) {
+            if (!keys.includes(k)) keys.push(k);
+        }
+    }
+    return keys;
+}
+
+function renderFlatTable(containerId, data, dtId) {
+    const box = document.getElementById(containerId);
+    if (!data.length) { box.innerHTML = '<p class="text-muted text-center py-4">Veri bulunamadi.</p>'; return; }
+
+    const keys = collectKeys(data);
+    let html = '<table id="' + dtId + '" class="table table-striped table-hover table-sm"><thead><tr><th>#</th>';
+    for (const k of keys) html += '<th>' + esc(k) + '</th>';
+    html += '</tr></thead><tbody>';
+    data.forEach((row, i) => {
+        html += '<tr><td>' + (i + 1) + '</td>';
+        for (const k of keys) html += '<td>' + esc(row[k] || '') + '</td>';
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    box.innerHTML = html;
+
+    $('#' + dtId).DataTable({
+        language: {
+            search: "Ara:", lengthMenu: "_MENU_ kayit goster",
+            info: "_TOTAL_ kayittan _START_ - _END_ arasi", infoEmpty: "Kayit yok",
+            infoFiltered: "(_MAX_ kayit icinden filtrelendi)",
+            paginate: { first: "Ilk", last: "Son", next: "Sonraki", previous: "Onceki" }
+        },
+        scrollX: true, pageLength: 25
+    });
+}
+
+function renderDetailView() {
+    const box = document.getElementById('detailBox');
+    let html = '';
+
+    parsedInvoices.forEach((inv, idx) => {
+        html += '<div class="detail-block">';
+        html += '<h5><span class="badge bg-primary">' + (idx + 1) + '</span> Fatura: ' +
+                esc(inv['Fatura No'] || 'Bilinmiyor') +
+                ' <small class="text-muted ms-2">' + esc(inv['Fatura Tarihi'] || '') + '</small></h5>';
+
+        html += '<div class="row"><div class="col-md-6">';
+        html += '<div class="section-title text-primary">Genel Bilgiler</div>';
+        html += '<table class="table table-sm table-bordered">';
+        for (const [k, v] of Object.entries(inv)) {
+            if (k.startsWith('_') || k.startsWith('Satici') || k.startsWith('Alici') || k.startsWith('Vergi') || !v) continue;
+            html += '<tr><th>' + esc(k) + '</th><td>' + esc(v) + '</td></tr>';
+        }
+        html += '</table></div><div class="col-md-6">';
+
+        // Supplier
+        html += '<div class="section-title text-success">Satici Bilgileri</div>';
+        html += '<table class="table table-sm table-bordered">';
+        for (const [k, v] of Object.entries(inv)) {
+            if (k.startsWith('Satici') && v) html += '<tr><th style="background:#f0fdf4">' + esc(k.replace('Satici ', '')) + '</th><td>' + esc(v) + '</td></tr>';
+        }
+        html += '</table>';
+
+        // Customer
+        html += '<div class="section-title text-info mt-3">Alici Bilgileri</div>';
+        html += '<table class="table table-sm table-bordered">';
+        for (const [k, v] of Object.entries(inv)) {
+            if (k.startsWith('Alici') && v) html += '<tr><th style="background:#eff6ff">' + esc(k.replace('Alici ', '')) + '</th><td>' + esc(v) + '</td></tr>';
+        }
+        html += '</table></div></div>';
+
+        // Tax
+        let hasTax = false;
+        for (const k of Object.keys(inv)) { if (k.startsWith('Vergi') && inv[k]) { hasTax = true; break; } }
+        if (hasTax) {
+            html += '<div class="section-title text-warning mt-3">Vergi Bilgileri</div>';
+            html += '<table class="table table-sm table-bordered">';
+            for (const [k, v] of Object.entries(inv)) {
+                if (k.startsWith('Vergi') && v) html += '<tr><th style="background:#fffbeb">' + esc(k) + '</th><td>' + esc(v) + '</td></tr>';
+            }
+            html += '</table>';
+        }
+
+        // Line items
+        if (inv._kalemler && inv._kalemler.length) {
+            html += '<div class="section-title text-secondary mt-3">Fatura Kalemleri (' + inv._kalemler.length + ' kalem)</div>';
+            const lineKeys = collectKeys(inv._kalemler);
+            html += '<div style="overflow-x:auto"><table class="table table-sm table-bordered table-hover"><thead class="table-light"><tr>';
+            for (const k of lineKeys) html += '<th>' + esc(k) + '</th>';
+            html += '</tr></thead><tbody>';
+            for (const line of inv._kalemler) {
+                html += '<tr>';
+                for (const k of lineKeys) html += '<td>' + esc(line[k] || '') + '</td>';
+                html += '</tr>';
+            }
+            html += '</tbody></table></div>';
+        }
+
+        html += '</div>';
+    });
+
+    box.innerHTML = html;
+}
+
+/* ===========================
+   EXCEL EXPORT (SheetJS)
+   =========================== */
+function exportExcel() {
+    if (!parsedInvoices.length) { alert('Aktarilacak fatura yok.'); return; }
+
+    showSpinner('Excel dosyasi olusturuluyor...');
+
+    setTimeout(() => {
+        try {
+            const wb = XLSX.utils.book_new();
+
+            // Sheet 1: Summary
+            const flatData = getFlatData();
+            const ws1 = XLSX.utils.json_to_sheet(flatData);
+            styleHeader(ws1, Object.keys(flatData[0] || {}).length);
+            XLSX.utils.book_append_sheet(wb, ws1, 'Fatura Ozeti');
+
+            // Sheet 2: Line items
+            const allLines = getAllLines();
+            if (allLines.length) {
+                const ws2 = XLSX.utils.json_to_sheet(allLines);
+                styleHeader(ws2, Object.keys(allLines[0] || {}).length);
+                XLSX.utils.book_append_sheet(wb, ws2, 'Fatura Kalemleri');
+            }
+
+            const exportName = currentFileName.replace('.zip', '').replace('.ZIP', '') + '_faturalar.xlsx';
+            XLSX.writeFile(wb, exportName);
+        } catch (e) {
+            alert('Excel olusturma hatasi: ' + e.message);
+        }
+        hideSpinner();
+    }, 100);
+}
+
+function styleHeader(ws, colCount) {
+    if (!ws['!ref']) return;
+    const cols = [];
+    for (let i = 0; i < colCount; i++) cols.push({ wch: 20 });
+    ws['!cols'] = cols;
+}
+
+/* ===========================
+   UTILITIES
+   =========================== */
+function esc(s) {
+    if (typeof s !== 'string') s = String(s || '');
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+function showSpinner(text) {
+    document.getElementById('spinnerText').textContent = text;
+    document.getElementById('spinner').classList.add('show');
+}
+
+function hideSpinner() {
+    document.getElementById('spinner').classList.remove('show');
+}
+
+function goBack() {
+    document.getElementById('resultsPage').style.display = 'none';
+    document.getElementById('uploadPage').style.display = 'block';
+    parsedInvoices = [];
+    parsedErrors = [];
+    fileInput.value = '';
+    fileBadge.style.display = 'none';
+    btnStart.disabled = true;
+    document.getElementById('errorContainer').innerHTML = '';
+
+    // Destroy DataTables
+    if ($.fn.DataTable.isDataTable('#summaryDT')) $('#summaryDT').DataTable().destroy();
+    if ($.fn.DataTable.isDataTable('#linesDT')) $('#linesDT').DataTable().destroy();
+}
+</script>
+</body>
+</html>
