@@ -27,6 +27,11 @@
             display: none; margin-top: 14px; padding: 10px 16px; background: #ecfdf5;
             border-radius: 6px; color: #065f46; font-size: 14px;
         }
+        .file-list { list-style: none; padding: 0; margin: 6px 0 0 0; }
+        .file-list li { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #d1fae5; font-size: 13px; }
+        .file-list li:last-child { border-bottom: none; }
+        .file-list .remove-file { cursor: pointer; color: #dc2626; font-weight: bold; margin-left: 8px; }
+        .file-list .remove-file:hover { color: #991b1b; }
         .btn-main { background: #2F5496; border: none; font-weight: 600; }
         .btn-main:hover { background: #1a365d; }
         .features-row { max-width: 620px; margin: 18px auto; }
@@ -55,6 +60,14 @@
             z-index: 9999; justify-content: center; align-items: center; flex-direction: column;
         }
         .spinner-overlay.show { display: flex; }
+
+        /* Dashboard */
+        .chart-card { background: #fff; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 20px; margin-bottom: 20px; }
+        .chart-card h6 { font-weight: 600; color: #1a365d; margin-bottom: 16px; }
+        .summary-stat-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .summary-stat-item { flex: 1; min-width: 180px; background: linear-gradient(135deg, #2F5496, #1a365d); color: #fff; border-radius: 10px; padding: 16px; text-align: center; }
+        .summary-stat-item .val { font-size: 22px; font-weight: 700; }
+        .summary-stat-item .lbl { font-size: 12px; opacity: .8; }
     </style>
 </head>
 <body>
@@ -76,14 +89,15 @@
             <div class="upload-body">
                 <div class="drop-zone" id="dropZone">
                     <div class="drop-icon">&#128230;</div>
-                    <h5>ZIP Dosyanizi Secin veya Surukleyin</h5>
-                    <p class="text-muted mb-0">GIB e-Fatura UBL XML dosyalarini iceren ZIP</p>
-                    <p class="text-muted small">Maksimum 100 MB</p>
-                    <input type="file" id="fileInput" accept=".zip" class="d-none">
+                    <h5>ZIP Dosyalarinizi Secin veya Surukleyin</h5>
+                    <p class="text-muted mb-0">GIB e-Fatura UBL XML dosyalarini iceren ZIP dosyalari</p>
+                    <p class="text-muted small">Birden fazla dosya secebilirsiniz - Maksimum 100 MB / dosya</p>
+                    <input type="file" id="fileInput" accept=".zip" multiple class="d-none">
                 </div>
                 <div class="file-badge" id="fileBadge">
-                    <strong>Secilen dosya:</strong> <span id="fName"></span>
-                    <span class="float-end" id="fSize"></span>
+                    <strong>Secilen dosyalar:</strong> <span id="fCount"></span>
+                    <span class="float-end" id="fTotalSize"></span>
+                    <ul class="file-list" id="fileList"></ul>
                 </div>
                 <div class="d-grid gap-2 mt-3">
                     <button class="btn btn-main btn-primary btn-lg" id="btnStart" disabled>
@@ -94,9 +108,10 @@
         </div>
         <div class="features-row">
             <div class="row g-3">
-                <div class="col-4"><div class="feat-box"><div style="font-size:22px">&#128196;</div><small>ZIP icindeki XML'leri okur</small></div></div>
-                <div class="col-4"><div class="feat-box"><div style="font-size:22px">&#128202;</div><small>Tum fatura alanlarini ayiklar</small></div></div>
-                <div class="col-4"><div class="feat-box"><div style="font-size:22px">&#128203;</div><small>Excel'e aktarma destegi</small></div></div>
+                <div class="col-3"><div class="feat-box"><div style="font-size:22px">&#128230;</div><small>Coklu ZIP dosya destegi</small></div></div>
+                <div class="col-3"><div class="feat-box"><div style="font-size:22px">&#128196;</div><small>ZIP icindeki XML'leri okur</small></div></div>
+                <div class="col-3"><div class="feat-box"><div style="font-size:22px">&#128202;</div><small>Grafikli dashboard</small></div></div>
+                <div class="col-3"><div class="feat-box"><div style="font-size:22px">&#128203;</div><small>Excel'e aktarma</small></div></div>
             </div>
         </div>
     </div>
@@ -118,20 +133,22 @@
             <div class="col-md-3"><div class="stat-card"><div class="stat-val" id="statInvoices">0</div><div class="stat-label">Toplam Fatura</div></div></div>
             <div class="col-md-3"><div class="stat-card"><div class="stat-val" id="statLines">0</div><div class="stat-label">Toplam Kalem</div></div></div>
             <div class="col-md-3"><div class="stat-card"><div class="stat-val" id="statErrors">0</div><div class="stat-label" id="statErrorLabel">Hata</div></div></div>
-            <div class="col-md-3"><div class="stat-card text-center"><div class="stat-val" id="statFile" style="font-size:14px;color:#64748b;"></div><div class="stat-label">Dosya Adi</div></div></div>
+            <div class="col-md-3"><div class="stat-card text-center"><div class="stat-val" id="statFiles" style="font-size:14px;color:#64748b;"></div><div class="stat-label">ZIP Dosyasi</div></div></div>
         </div>
 
         <div id="errorContainer"></div>
 
         <!-- Tabs -->
         <ul class="nav nav-tabs mb-3" role="tablist">
-            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabSummary">Fatura Ozeti</a></li>
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabDashboard">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabSummary">Fatura Ozeti</a></li>
             <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabLines">Fatura Kalemleri</a></li>
             <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabDetail">Detayli Goruntule</a></li>
         </ul>
 
         <div class="tab-content">
-            <div class="tab-pane fade show active" id="tabSummary"><div class="table-box" id="summaryBox"></div></div>
+            <div class="tab-pane fade show active" id="tabDashboard"><div id="dashboardBox"></div></div>
+            <div class="tab-pane fade" id="tabSummary"><div class="table-box" id="summaryBox"></div></div>
             <div class="tab-pane fade" id="tabLines"><div class="table-box" id="linesBox"></div></div>
             <div class="tab-pane fade" id="tabDetail"><div id="detailBox"></div></div>
         </div>
@@ -145,6 +162,7 @@
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <script>
 /* ===========================
@@ -152,7 +170,8 @@
    =========================== */
 let parsedInvoices = [];
 let parsedErrors = [];
-let currentFileName = '';
+let selectedFiles = [];
+let chartInstances = [];
 
 /* ===========================
    FILE UPLOAD HANDLING
@@ -168,20 +187,48 @@ dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-ove
 dropZone.addEventListener('drop', e => {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
-    if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; onFileSelect(); }
+    if (e.dataTransfer.files.length) {
+        addFiles(e.dataTransfer.files);
+    }
 });
-fileInput.addEventListener('change', onFileSelect);
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) addFiles(fileInput.files);
+});
 
-function onFileSelect() {
-    const f = fileInput.files[0];
-    if (!f) return;
-    document.getElementById('fName').textContent = f.name;
-    document.getElementById('fSize').textContent = formatBytes(f.size);
-    fileBadge.style.display = 'block';
-    btnStart.disabled = false;
+function addFiles(fileList) {
+    for (let i = 0; i < fileList.length; i++) {
+        const f = fileList[i];
+        if (!f.name.toLowerCase().endsWith('.zip')) continue;
+        if (selectedFiles.some(sf => sf.name === f.name && sf.size === f.size)) continue;
+        selectedFiles.push(f);
+    }
+    renderFileList();
 }
 
-btnStart.addEventListener('click', processZip);
+function removeFile(idx) {
+    selectedFiles.splice(idx, 1);
+    renderFileList();
+}
+
+function renderFileList() {
+    if (selectedFiles.length === 0) {
+        fileBadge.style.display = 'none';
+        btnStart.disabled = true;
+        return;
+    }
+    fileBadge.style.display = 'block';
+    btnStart.disabled = false;
+    const totalSize = selectedFiles.reduce((s, f) => s + f.size, 0);
+    document.getElementById('fCount').textContent = selectedFiles.length + ' dosya';
+    document.getElementById('fTotalSize').textContent = formatBytes(totalSize);
+    const ul = document.getElementById('fileList');
+    ul.innerHTML = selectedFiles.map((f, i) =>
+        '<li><span>' + esc(f.name) + ' (' + formatBytes(f.size) + ')</span>' +
+        '<span class="remove-file" onclick="removeFile(' + i + ')" title="Kaldir">&times;</span></li>'
+    ).join('');
+}
+
+btnStart.addEventListener('click', processAllZips);
 
 function formatBytes(b) {
     if (b < 1024) return b + ' B';
@@ -441,38 +488,45 @@ function parseSingleInvoice(xmlStr, filename) {
 /* ===========================
    ZIP PROCESSING
    =========================== */
-async function processZip() {
-    const file = fileInput.files[0];
-    if (!file) return;
-    currentFileName = file.name;
+async function processAllZips() {
+    if (!selectedFiles.length) return;
 
     showSpinner('Faturalar ayiklaniyor...');
+    parsedInvoices = [];
+    parsedErrors = [];
+
+    let totalXml = 0;
+    let processed = 0;
 
     try {
-        const zip = await JSZip.loadAsync(file);
-        parsedInvoices = [];
-        parsedErrors = [];
+        for (let fi = 0; fi < selectedFiles.length; fi++) {
+            const file = selectedFiles[fi];
+            document.getElementById('spinnerText').textContent =
+                'ZIP aciliyor: ' + file.name + ' (' + (fi + 1) + '/' + selectedFiles.length + ')';
 
-        const xmlFiles = Object.keys(zip.files).filter(n => n.toLowerCase().endsWith('.xml'));
+            const zip = await JSZip.loadAsync(file);
+            const xmlFiles = Object.keys(zip.files).filter(n => n.toLowerCase().endsWith('.xml'));
+            totalXml += xmlFiles.length;
 
-        if (xmlFiles.length === 0) {
-            hideSpinner();
-            alert('ZIP dosyasinda XML dosyasi bulunamadi.');
-            return;
+            for (const name of xmlFiles) {
+                const content = await zip.files[name].async('string');
+                const result = parseSingleInvoice(content, name);
+                result._zipDosyasi = file.name;
+                if (result._error) {
+                    parsedErrors.push(result);
+                } else {
+                    parsedInvoices.push(result);
+                }
+                processed++;
+                document.getElementById('spinnerText').textContent =
+                    'Ayiklaniyor... ' + processed + ' / ' + totalXml + ' XML';
+            }
         }
 
-        let processed = 0;
-        for (const name of xmlFiles) {
-            const content = await zip.files[name].async('string');
-            const result = parseSingleInvoice(content, name);
-            if (result._error) {
-                parsedErrors.push(result);
-            } else {
-                parsedInvoices.push(result);
-            }
-            processed++;
-            document.getElementById('spinnerText').textContent =
-                `Ayiklaniyor... ${processed} / ${xmlFiles.length}`;
+        if (totalXml === 0) {
+            hideSpinner();
+            alert('ZIP dosyalarinda XML dosyasi bulunamadi.');
+            return;
         }
 
         renderResults();
@@ -497,7 +551,7 @@ function renderResults() {
     document.getElementById('statLines').textContent = allLines.length;
     document.getElementById('statErrors').textContent = parsedErrors.length;
     if (parsedErrors.length > 0) document.getElementById('statErrorLabel').classList.add('text-danger');
-    document.getElementById('statFile').textContent = currentFileName;
+    document.getElementById('statFiles').textContent = selectedFiles.length + ' dosya';
 
     // Errors
     if (parsedErrors.length > 0) {
@@ -506,6 +560,9 @@ function renderResults() {
         html += '</div>';
         document.getElementById('errorContainer').innerHTML = html;
     }
+
+    // Dashboard
+    renderDashboard();
 
     // Summary table
     renderFlatTable('summaryBox', getFlatData(), 'summaryDT');
@@ -521,7 +578,7 @@ function getFlatData() {
     return parsedInvoices.map(inv => {
         const row = {};
         for (const [k, v] of Object.entries(inv)) {
-            if (k !== '_kalemler') row[k] = v;
+            if (!k.startsWith('_')) row[k] = v;
         }
         return row;
     });
@@ -645,6 +702,242 @@ function renderDetailView() {
 }
 
 /* ===========================
+   DASHBOARD / CHARTS
+   =========================== */
+const CHART_COLORS = [
+    '#2F5496', '#E67E22', '#27AE60', '#E74C3C', '#8E44AD',
+    '#16A085', '#F39C12', '#2980B9', '#D35400', '#1ABC9C',
+    '#C0392B', '#7F8C8D', '#34495E', '#9B59B6', '#2C3E50'
+];
+
+function renderDashboard() {
+    // Destroy previous charts
+    for (const c of chartInstances) c.destroy();
+    chartInstances = [];
+
+    const box = document.getElementById('dashboardBox');
+    if (!parsedInvoices.length) {
+        box.innerHTML = '<p class="text-muted text-center py-4">Gosterilecek veri yok.</p>';
+        return;
+    }
+
+    // Compute summary stats
+    let toplamTutar = 0, toplamKDV = 0, toplamKalem = 0;
+    const saticiMap = {};
+    const aylikMap = {};
+    const kdvOranlari = {};
+    const faturaTipleri = {};
+    const paraBirimleri = {};
+
+    for (const inv of parsedInvoices) {
+        const tutar = parseFloat(inv['Odenecek Tutar']) || 0;
+        const kdv = parseFloat(inv['Toplam KDV Tutari']) || 0;
+        const kalemSayisi = (inv._kalemler || []).length;
+        toplamTutar += tutar;
+        toplamKDV += kdv;
+        toplamKalem += kalemSayisi;
+
+        // Satici dagilimi
+        const satici = inv['Satici Ad'] || 'Bilinmiyor';
+        saticiMap[satici] = (saticiMap[satici] || 0) + tutar;
+
+        // Aylik trend
+        const tarih = inv['Fatura Tarihi'] || '';
+        if (tarih.length >= 7) {
+            const ayKey = tarih.substring(0, 7); // YYYY-MM
+            if (!aylikMap[ayKey]) aylikMap[ayKey] = { tutar: 0, adet: 0 };
+            aylikMap[ayKey].tutar += tutar;
+            aylikMap[ayKey].adet += 1;
+        }
+
+        // KDV orani dagilimi
+        for (const line of (inv._kalemler || [])) {
+            const oran = line['KDV Orani (%)'] || '0';
+            const kalemTutar = parseFloat(line['Kalem Tutari']) || 0;
+            kdvOranlari[oran] = (kdvOranlari[oran] || 0) + kalemTutar;
+        }
+
+        // Fatura tipi
+        const tip = inv['Fatura Tipi'] || 'Bilinmiyor';
+        faturaTipleri[tip] = (faturaTipleri[tip] || 0) + 1;
+
+        // Para birimi
+        const pb = inv['Para Birimi'] || 'TRY';
+        paraBirimleri[pb] = (paraBirimleri[pb] || 0) + 1;
+    }
+
+    // Build HTML layout
+    let html = '';
+
+    // Summary stat cards
+    html += '<div class="summary-stat-row">';
+    html += '<div class="summary-stat-item"><div class="val">' + parsedInvoices.length + '</div><div class="lbl">Toplam Fatura</div></div>';
+    html += '<div class="summary-stat-item"><div class="val">' + toplamKalem + '</div><div class="lbl">Toplam Kalem</div></div>';
+    html += '<div class="summary-stat-item"><div class="val">' + formatMoney(toplamTutar) + '</div><div class="lbl">Toplam Tutar</div></div>';
+    html += '<div class="summary-stat-item"><div class="val">' + formatMoney(toplamKDV) + '</div><div class="lbl">Toplam KDV</div></div>';
+    html += '<div class="summary-stat-item"><div class="val">' + Object.keys(saticiMap).length + '</div><div class="lbl">Farkli Satici</div></div>';
+    html += '</div>';
+
+    // Chart grid
+    html += '<div class="row g-3">';
+
+    // 1) Satici bazli tutar dagilimi (top 10)
+    html += '<div class="col-md-6"><div class="chart-card"><h6>Satici Bazli Tutar Dagilimi (Ilk 10)</h6><canvas id="chartSatici"></canvas></div></div>';
+
+    // 2) Aylik fatura trendi
+    html += '<div class="col-md-6"><div class="chart-card"><h6>Aylik Fatura Trendi</h6><canvas id="chartAylik"></canvas></div></div>';
+
+    // 3) KDV orani dagilimi
+    html += '<div class="col-md-6"><div class="chart-card"><h6>KDV Orani Dagilimi</h6><canvas id="chartKDV"></canvas></div></div>';
+
+    // 4) Fatura tipi dagilimi
+    html += '<div class="col-md-6"><div class="chart-card"><h6>Fatura Tipi Dagilimi</h6><canvas id="chartTip"></canvas></div></div>';
+
+    html += '</div>';
+
+    box.innerHTML = html;
+
+    // === Render charts ===
+
+    // 1) Satici bar chart (top 10)
+    const saticiSorted = Object.entries(saticiMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    chartInstances.push(new Chart(document.getElementById('chartSatici'), {
+        type: 'bar',
+        data: {
+            labels: saticiSorted.map(s => truncateLabel(s[0], 25)),
+            datasets: [{
+                label: 'Tutar',
+                data: saticiSorted.map(s => s[1]),
+                backgroundColor: CHART_COLORS.slice(0, saticiSorted.length),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: ctx => formatMoney(ctx.raw) } }
+            },
+            scales: {
+                x: { ticks: { callback: v => formatMoney(v) } }
+            }
+        }
+    }));
+
+    // 2) Aylik trend (line + bar combo)
+    const aylar = Object.keys(aylikMap).sort();
+    chartInstances.push(new Chart(document.getElementById('chartAylik'), {
+        type: 'bar',
+        data: {
+            labels: aylar.map(formatMonthLabel),
+            datasets: [
+                {
+                    label: 'Tutar',
+                    data: aylar.map(a => aylikMap[a].tutar),
+                    backgroundColor: 'rgba(47,84,150,0.6)',
+                    borderColor: '#2F5496',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Fatura Adedi',
+                    data: aylar.map(a => aylikMap[a].adet),
+                    type: 'line',
+                    borderColor: '#E67E22',
+                    backgroundColor: '#E67E22',
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    tension: 0.3,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            if (ctx.dataset.label === 'Tutar') return 'Tutar: ' + formatMoney(ctx.raw);
+                            return 'Adet: ' + ctx.raw;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: { position: 'left', ticks: { callback: v => formatMoney(v) }, title: { display: true, text: 'Tutar' } },
+                y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Adet' } }
+            }
+        }
+    }));
+
+    // 3) KDV orani dagilimi (doughnut)
+    const kdvEntries = Object.entries(kdvOranlari).sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]));
+    chartInstances.push(new Chart(document.getElementById('chartKDV'), {
+        type: 'doughnut',
+        data: {
+            labels: kdvEntries.map(e => '%' + e[0]),
+            datasets: [{
+                data: kdvEntries.map(e => e[1]),
+                backgroundColor: CHART_COLORS.slice(0, kdvEntries.length),
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                tooltip: {
+                    callbacks: { label: ctx => ctx.label + ': ' + formatMoney(ctx.raw) }
+                },
+                legend: { position: 'bottom' }
+            }
+        }
+    }));
+
+    // 4) Fatura tipi (pie)
+    const tipEntries = Object.entries(faturaTipleri);
+    chartInstances.push(new Chart(document.getElementById('chartTip'), {
+        type: 'pie',
+        data: {
+            labels: tipEntries.map(e => e[0]),
+            datasets: [{
+                data: tipEntries.map(e => e[1]),
+                backgroundColor: CHART_COLORS.slice(0, tipEntries.length),
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                tooltip: {
+                    callbacks: { label: ctx => ctx.label + ': ' + ctx.raw + ' fatura' }
+                },
+                legend: { position: 'bottom' }
+            }
+        }
+    }));
+}
+
+function formatMoney(val) {
+    return new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+}
+
+function formatMonthLabel(ym) {
+    const months = ['Oca','Sub','Mar','Nis','May','Haz','Tem','Agu','Eyl','Eki','Kas','Ara'];
+    const parts = ym.split('-');
+    if (parts.length === 2) return months[parseInt(parts[1], 10) - 1] + ' ' + parts[0];
+    return ym;
+}
+
+function truncateLabel(str, max) {
+    if (str.length <= max) return str;
+    return str.substring(0, max - 3) + '...';
+}
+
+/* ===========================
    EXCEL EXPORT (SheetJS)
    =========================== */
 function exportExcel() {
@@ -670,7 +963,10 @@ function exportExcel() {
                 XLSX.utils.book_append_sheet(wb, ws2, 'Fatura Kalemleri');
             }
 
-            const exportName = currentFileName.replace('.zip', '').replace('.ZIP', '') + '_faturalar.xlsx';
+            const baseName = selectedFiles.length === 1
+                ? selectedFiles[0].name.replace(/\.zip$/i, '')
+                : 'toplu_fatura_' + selectedFiles.length + '_dosya';
+            const exportName = baseName + '_faturalar.xlsx';
             XLSX.writeFile(wb, exportName);
         } catch (e) {
             alert('Excel olusturma hatasi: ' + e.message);
@@ -710,14 +1006,21 @@ function goBack() {
     document.getElementById('uploadPage').style.display = 'block';
     parsedInvoices = [];
     parsedErrors = [];
+    selectedFiles = [];
     fileInput.value = '';
     fileBadge.style.display = 'none';
     btnStart.disabled = true;
     document.getElementById('errorContainer').innerHTML = '';
+    document.getElementById('fileList').innerHTML = '';
 
     // Destroy DataTables
     if ($.fn.DataTable.isDataTable('#summaryDT')) $('#summaryDT').DataTable().destroy();
     if ($.fn.DataTable.isDataTable('#linesDT')) $('#linesDT').DataTable().destroy();
+
+    // Destroy Charts
+    for (const c of chartInstances) c.destroy();
+    chartInstances = [];
+    document.getElementById('dashboardBox').innerHTML = '';
 }
 </script>
 </body>
