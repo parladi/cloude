@@ -8,9 +8,7 @@
     <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <style>
         body { background-color: #f0f2f5; }
-        .navbar-custom {
-            background: linear-gradient(135deg, #0d6a3e, #155d36);
-        }
+        .navbar-custom { background: linear-gradient(135deg, #0d6a3e, #155d36); }
         .stat-card {
             border: none;
             border-radius: 8px;
@@ -27,13 +25,10 @@
             box-shadow: 0 2px 12px rgba(0,0,0,0.06);
             padding: 20px;
             margin-bottom: 24px;
-            overflow-x: auto;
         }
         .table thead th {
             background: #0d6a3e;
             color: white;
-            position: sticky;
-            top: 0;
             white-space: nowrap;
             font-size: 13px;
         }
@@ -41,25 +36,17 @@
             font-size: 13px;
             white-space: nowrap;
         }
-        .nav-tabs .nav-link {
-            color: #0d6a3e;
-            font-weight: 500;
-        }
+        .nav-tabs .nav-link { color: #0d6a3e; font-weight: 500; }
         .nav-tabs .nav-link.active {
             color: #155d36;
             font-weight: 700;
             border-color: #0d6a3e #0d6a3e #fff;
         }
-        .badge-irsaliye { background: #0d6a3e; }
         .error-box {
             background: #fef2f2;
             border: 1px solid #fecaca;
             border-radius: 8px;
             padding: 16px;
-        }
-        .detail-section h6 {
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 6px;
         }
     </style>
 </head>
@@ -67,12 +54,16 @@
     <nav class="navbar navbar-custom navbar-dark px-4 mb-4">
         <a class="navbar-brand" href="/irsaliye">UBL-TR Irsaliye Ayiklayici</a>
         <div>
+            <a href="/irsaliye/download/{{ cache_key }}" class="btn btn-success btn-sm me-2">
+                &#128229; Excel Indir
+            </a>
             <a href="/irsaliye" class="btn btn-outline-light btn-sm me-2">Yeni Yukle</a>
             <a href="/" class="btn btn-outline-light btn-sm">Ana Sayfa</a>
         </div>
     </nav>
 
     <div class="container-fluid px-4">
+
         <!-- Ozet istatistikler -->
         <div class="row g-3 mb-4">
             <div class="col-md-3">
@@ -89,19 +80,20 @@
             </div>
             <div class="col-md-3">
                 <div class="card stat-card p-3">
-                    <div class="stat-value">{{ errors|length }}</div>
-                    <div class="text-muted text-{{ 'danger' if errors else 'muted' }}">Hata</div>
+                    {% if errors %}
+                    <div class="stat-value text-danger">{{ errors|length }}</div>
+                    <div class="text-danger">Hata</div>
+                    {% else %}
+                    <div class="stat-value text-success">0</div>
+                    <div class="text-muted">Hata</div>
+                    {% endif %}
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card stat-card p-3 text-center">
-                    <form action="/irsaliye/export" method="POST" enctype="multipart/form-data" id="exportForm">
-                        <input type="file" name="xmlfiles" id="reuploadFiles" class="d-none" multiple accept=".xml,.zip">
-                        <button type="button" class="btn btn-success btn-lg w-100" onclick="exportExcel()">
-                            &#128229; Excel'e Aktar
-                        </button>
-                    </form>
-                    <small class="text-muted mt-1">{{ filename }}</small>
+                <div class="card stat-card p-3">
+                    <div class="text-muted mb-1">Kaynak</div>
+                    <div class="small fw-bold text-truncate" title="{{ filename }}">{{ filename }}</div>
+                    <div class="small text-muted">{{ file_count }} dosya</div>
                 </div>
             </div>
         </div>
@@ -110,7 +102,7 @@
         <div class="error-box mb-4">
             <h6 class="text-danger">Hatalar ({{ errors|length }})</h6>
             {% for err in errors %}
-            <div><strong>{{ err.dosya }}:</strong> {{ err.hata }}</div>
+            <div><strong>{{ err.get('dosya', '?') }}:</strong> {{ err.get('hata', '') }}</div>
             {% endfor %}
         </div>
         {% endif %}
@@ -118,10 +110,14 @@
         <!-- Sekmeler -->
         <ul class="nav nav-tabs mb-3" role="tablist">
             <li class="nav-item">
-                <a class="nav-link active" data-bs-toggle="tab" href="#tabSummary">Irsaliye Ozeti</a>
+                <a class="nav-link active" data-bs-toggle="tab" href="#tabSummary">
+                    Irsaliye Ozeti ({{ flat_data|length }})
+                </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="tab" href="#tabLines">Irsaliye Kalemleri</a>
+                <a class="nav-link" data-bs-toggle="tab" href="#tabLines">
+                    Irsaliye Kalemleri ({{ line_items|length }})
+                </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" data-bs-toggle="tab" href="#tabDetail">Detayli Goruntule</a>
@@ -129,32 +125,23 @@
         </ul>
 
         <div class="tab-content">
-            <!-- Irsaliye Ozeti Tablosu -->
+
+            <!-- Sekme 1: Irsaliye Ozeti -->
             <div class="tab-pane fade show active" id="tabSummary">
-                <div class="table-container">
+                <div class="table-container" style="overflow-x:auto;">
                     {% if flat_data %}
-                    <table id="summaryTable" class="table table-striped table-hover table-sm">
+                    <table id="summaryTable" class="table table-striped table-hover table-sm w-100">
                         <thead>
                             <tr>
                                 <th>#</th>
-                                {% set all_keys = [] %}
-                                {% for row in flat_data %}
-                                    {% for key in row.keys() %}
-                                        {% if key not in all_keys %}
-                                            {% if all_keys.append(key) %}{% endif %}
-                                        {% endif %}
-                                    {% endfor %}
-                                {% endfor %}
-                                {% for key in all_keys %}
-                                <th>{{ key }}</th>
-                                {% endfor %}
+                                {% for key in flat_keys %}<th>{{ key }}</th>{% endfor %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for row in flat_data %}
                             <tr>
                                 <td>{{ loop.index }}</td>
-                                {% for key in all_keys %}
+                                {% for key in flat_keys %}
                                 <td>{{ row.get(key, '') }}</td>
                                 {% endfor %}
                             </tr>
@@ -167,25 +154,15 @@
                 </div>
             </div>
 
-            <!-- Irsaliye Kalemleri Tablosu -->
+            <!-- Sekme 2: Irsaliye Kalemleri -->
             <div class="tab-pane fade" id="tabLines">
-                <div class="table-container">
+                <div class="table-container" style="overflow-x:auto;">
                     {% if line_items %}
-                    <table id="linesTable" class="table table-striped table-hover table-sm">
+                    <table id="linesTable" class="table table-striped table-hover table-sm w-100">
                         <thead>
                             <tr>
                                 <th>#</th>
-                                {% set line_keys = [] %}
-                                {% for row in line_items %}
-                                    {% for key in row.keys() %}
-                                        {% if key not in line_keys %}
-                                            {% if line_keys.append(key) %}{% endif %}
-                                        {% endif %}
-                                    {% endfor %}
-                                {% endfor %}
-                                {% for key in line_keys %}
-                                <th>{{ key }}</th>
-                                {% endfor %}
+                                {% for key in line_keys %}<th>{{ key }}</th>{% endfor %}
                             </tr>
                         </thead>
                         <tbody>
@@ -205,113 +182,94 @@
                 </div>
             </div>
 
-            <!-- Detayli Goruntuleme -->
+            <!-- Sekme 3: Detayli Goruntuleme -->
             <div class="tab-pane fade" id="tabDetail">
                 {% for irs in irsaliyeler %}
-                <div class="table-container mb-3 detail-section">
+                <div class="table-container mb-3">
                     <h5 class="mb-3">
-                        <span class="badge badge-irsaliye bg-success">{{ loop.index }}</span>
-                        Irsaliye: {{ irs.get('Irsaliye No', 'Bilinmiyor') }}
+                        <span class="badge bg-success">{{ loop.index }}</span>
+                        {{ irs.get('Irsaliye No', 'Bilinmiyor') }}
                         <small class="text-muted ms-2">{{ irs.get('Duzenleme Tarihi', '') }}</small>
+                        <small class="text-muted ms-2">{{ irs.get('Dosya Adi', '') }}</small>
                     </h5>
 
                     <div class="row">
-                        <!-- Genel Bilgiler -->
                         <div class="col-md-6">
-                            <h6 class="text-primary">Genel Bilgiler</h6>
+                            <h6 class="border-bottom pb-1 text-primary">Genel Bilgiler</h6>
                             <table class="table table-sm table-bordered">
-                                {% for key, val in irs.items() %}
-                                    {% if not key.startswith('_') and not key.startswith('Gonderen') and not key.startswith('Alici') and not key.startswith('Tasiyici') and not key.startswith('Sevk') and not key.startswith('Teslimat') and not key.startswith('Plaka') and not key.startswith('Dorse') and val %}
-                                    <tr>
-                                        <th style="width:180px; background:#f8fafc;">{{ key }}</th>
-                                        <td>{{ val }}</td>
-                                    </tr>
-                                    {% endif %}
+                                {% for key in ['Irsaliye No','UUID','Duzenleme Tarihi','Duzenleme Saati','Irsaliye Tipi','Profil ID','Notlar','Ek Dokuman Ref'] %}
+                                {% if irs.get(key) %}
+                                <tr>
+                                    <th class="bg-light" style="width:160px;">{{ key }}</th>
+                                    <td>{{ irs[key] }}</td>
+                                </tr>
+                                {% endif %}
                                 {% endfor %}
                             </table>
                         </div>
-
-                        <!-- Sevkiyat Bilgileri -->
                         <div class="col-md-6">
-                            <h6 class="text-warning">Sevkiyat & Tasima Bilgileri</h6>
+                            <h6 class="border-bottom pb-1 text-warning">Sevkiyat & Tasima</h6>
                             <table class="table table-sm table-bordered">
-                                {% for key, val in irs.items() %}
-                                    {% if (key.startswith('Sevk') or key.startswith('Teslimat') or key.startswith('Plaka') or key.startswith('Dorse')) and val %}
-                                    <tr>
-                                        <th style="width:180px; background:#fffbeb;">{{ key }}</th>
-                                        <td>{{ val }}</td>
-                                    </tr>
-                                    {% endif %}
-                                {% endfor %}
-                                {% for key, val in irs.items() %}
-                                    {% if key.startswith('Tasiyici') and val %}
-                                    <tr>
-                                        <th style="width:180px; background:#fffbeb;">{{ key }}</th>
-                                        <td>{{ val }}</td>
-                                    </tr>
-                                    {% endif %}
+                                {% for key in ['Sevkiyat ID','Sevk Tarihi','Sevk Saati','Plaka','Dorse Plaka','Teslimat Il','Teslimat Ilce','Tasiyici Ad','Tasiyici VKN/TCKN','Tasiyici Surucu'] %}
+                                {% if irs.get(key) %}
+                                <tr>
+                                    <th class="bg-light" style="width:160px;">{{ key }}</th>
+                                    <td>{{ irs[key] }}</td>
+                                </tr>
+                                {% endif %}
                                 {% endfor %}
                             </table>
                         </div>
                     </div>
 
                     <div class="row mt-2">
-                        <!-- Gonderen Bilgileri -->
                         <div class="col-md-6">
-                            <h6 class="text-success">Gonderen (Tedarikci) Bilgileri</h6>
+                            <h6 class="border-bottom pb-1 text-success">Gonderen (Tedarikci)</h6>
                             <table class="table table-sm table-bordered">
                                 {% for key, val in irs.items() %}
-                                    {% if key.startswith('Gonderen') and val %}
-                                    <tr>
-                                        <th style="width:180px; background:#f0fdf4;">{{ key|replace('Gonderen ', '') }}</th>
-                                        <td>{{ val }}</td>
-                                    </tr>
-                                    {% endif %}
+                                {% if key.startswith('Gonderen') and val %}
+                                <tr>
+                                    <th class="bg-light" style="width:160px;">{{ key | replace('Gonderen ', '') }}</th>
+                                    <td>{{ val }}</td>
+                                </tr>
+                                {% endif %}
                                 {% endfor %}
                             </table>
                         </div>
-
-                        <!-- Alici Bilgileri -->
                         <div class="col-md-6">
-                            <h6 class="text-info">Alici (Musteri) Bilgileri</h6>
+                            <h6 class="border-bottom pb-1 text-info">Alici (Musteri)</h6>
                             <table class="table table-sm table-bordered">
                                 {% for key, val in irs.items() %}
-                                    {% if key.startswith('Alici') and val %}
-                                    <tr>
-                                        <th style="width:180px; background:#eff6ff;">{{ key|replace('Alici ', '') }}</th>
-                                        <td>{{ val }}</td>
-                                    </tr>
-                                    {% endif %}
+                                {% if key.startswith('Alici') and val %}
+                                <tr>
+                                    <th class="bg-light" style="width:160px;">{{ key | replace('Alici ', '') }}</th>
+                                    <td>{{ val }}</td>
+                                </tr>
+                                {% endif %}
                                 {% endfor %}
                             </table>
                         </div>
                     </div>
 
-                    <!-- Kalemler -->
-                    {% if irs.get('_kalemler') %}
-                    <h6 class="text-secondary mt-3">Irsaliye Kalemleri ({{ irs['_kalemler']|length }} kalem)</h6>
+                    {% set kalemler = irs.get('_kalemler', []) %}
+                    {% if kalemler %}
+                    <h6 class="border-bottom pb-1 text-secondary mt-2">
+                        Irsaliye Kalemleri ({{ kalemler|length }})
+                    </h6>
                     <div style="overflow-x:auto;">
                         <table class="table table-sm table-bordered table-hover">
                             <thead class="table-light">
                                 <tr>
-                                    {% set item_keys = [] %}
-                                    {% for item in irs['_kalemler'] %}
-                                        {% for key in item.keys() %}
-                                            {% if key not in item_keys %}
-                                                {% if item_keys.append(key) %}{% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    {% endfor %}
-                                    {% for key in item_keys %}
-                                    <th>{{ key }}</th>
-                                    {% endfor %}
+                                    {% set item_keys = kalemler[0].keys() | list %}
+                                    {% for k in item_keys %}<th>{{ k }}</th>{% endfor %}
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for item in irs['_kalemler'] %}
+                                {% for item in kalemler %}
                                 <tr>
-                                    {% for key in item_keys %}
-                                    <td>{{ item.get(key, '') }}</td>
+                                    {% set item_keys2 = kalemler[0].keys() | list %}
+                                    {% for k in item_keys2 %}
+                                    <td>{{ item.get(k, '') }}</td>
                                     {% endfor %}
                                 </tr>
                                 {% endfor %}
@@ -320,10 +278,15 @@
                     </div>
                     {% endif %}
                 </div>
+                {% else %}
+                <div class="table-container">
+                    <p class="text-muted text-center py-4">Irsaliye bulunamadi.</p>
+                </div>
                 {% endfor %}
             </div>
-        </div>
-    </div>
+
+        </div><!-- tab-content -->
+    </div><!-- container -->
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
@@ -339,7 +302,6 @@
                 infoFiltered: "(_MAX_ kayit icinden filtrelendi)",
                 paginate: { first: "Ilk", last: "Son", next: "Sonraki", previous: "Onceki" }
             };
-
             if ($('#summaryTable tbody tr').length > 0) {
                 $('#summaryTable').DataTable({ language: dtLang, scrollX: true, pageLength: 25 });
             }
@@ -347,27 +309,6 @@
                 $('#linesTable').DataTable({ language: dtLang, scrollX: true, pageLength: 25 });
             }
         });
-
-        function exportExcel() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.xml,.zip';
-            input.multiple = true;
-            input.onchange = function() {
-                if (input.files.length > 0) {
-                    const form = document.getElementById('exportForm');
-                    const dt = new DataTransfer();
-                    for (let i = 0; i < input.files.length; i++) {
-                        dt.items.add(input.files[i]);
-                    }
-                    document.getElementById('reuploadFiles').files = dt.files;
-                    form.submit();
-                }
-            };
-            if (confirm("Excel'e aktarmak icin dosyalarinizi tekrar secmeniz gerekiyor.\nDevam etmek istiyor musunuz?")) {
-                input.click();
-            }
-        }
     </script>
 </body>
 </html>

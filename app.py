@@ -5,7 +5,9 @@ GIB e-Fatura ve e-Irsaliye dosyalarindan bilgileri ayiklar.
 
 import os
 import io
-from flask import Flask, render_template, request, send_file, redirect, url_for, flash
+import uuid
+from threading import Lock
+from flask import Flask, render_template, request, send_file, redirect, url_for, flash, session
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from ubl_parser import extract_from_zip_bytes, get_flat_invoice_data, get_all_line_items
@@ -15,6 +17,10 @@ from irsaliye_parser import (
     get_flat_irsaliye_data,
     get_all_despatch_lines,
 )
+
+# Gecici bellek cache - Excel icin yeniden upload gerekmez
+_irsaliye_cache = {}
+_cache_lock = Lock()
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -215,18 +221,65 @@ def irsaliye_upload():
     flat_data = get_flat_irsaliye_data(irsaliyeler)
     line_items = get_all_despatch_lines(irsaliyeler)
 
+    # Sütun başlıklarını Python'da hesapla (template'e geçir)
+    flat_keys = []
+    for row in flat_data:
+        for key in row.keys():
+            if key not in flat_keys:
+                flat_keys.append(key)
+
+    line_keys = []
+    for row in line_items:
+        for key in row.keys():
+            if key not in line_keys:
+                line_keys.append(key)
+
+    # Excel icin veriyi cache'le - re-upload gerekmez
+    cache_key = str(uuid.uuid4())
+    with _cache_lock:
+        _irsaliye_cache[cache_key] = irsaliyeler
+        if len(_irsaliye_cache) > 50:
+            oldest = list(_irsaliye_cache.keys())[0]
+            del _irsaliye_cache[oldest]
+
     return render_template('irsaliye_results.html',
                            irsaliyeler=irsaliyeler,
                            flat_data=flat_data,
                            line_items=line_items,
+                           flat_keys=flat_keys,
+                           line_keys=line_keys,
                            errors=errors,
                            filename=first_filename,
-                           file_count=len(uploaded_files))
+                           file_count=len(uploaded_files),
+                           cache_key=cache_key)
+
+
+@app.route('/irsaliye/download/<cache_key>')
+def irsaliye_download_excel(cache_key):
+    """Cache'teki irsaliye verisini Excel olarak indirir (re-upload gerekmez)."""
+    with _cache_lock:
+        irsaliyeler = _irsaliye_cache.get(cache_key)
+
+    if not irsaliyeler:
+        flash('Oturum suresi doldu. Lutfen dosyalari tekrar yukleyin.', 'error')
+        return redirect(url_for('irsaliye_index'))
+
+    wb = create_irsaliye_excel(irsaliyeler)
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='irsaliyeler.xlsx'
+    )
 
 
 @app.route('/irsaliye/export', methods=['POST'])
 def irsaliye_export_excel():
-    """Irsaliyeleri Excel dosyasina aktarir."""
+    """Irsaliyeleri Excel dosyasina aktarir (dosya yeniden yuklenerek)."""
     uploaded_files = request.files.getlist('xmlfiles')
 
     if not uploaded_files or all(f.filename == '' for f in uploaded_files):
@@ -240,7 +293,7 @@ def irsaliye_export_excel():
     for file in uploaded_files:
         if file.filename == '':
             continue
-        if not first_filename or first_filename == 'irsaliyeler':
+        if first_filename == 'irsaliyeler':
             first_filename = os.path.splitext(file.filename)[0]
 
         file_bytes = file.read()
@@ -259,7 +312,6 @@ def irsaliye_export_excel():
         return redirect(url_for('irsaliye_index'))
 
     wb = create_irsaliye_excel(irsaliyeler)
-
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
