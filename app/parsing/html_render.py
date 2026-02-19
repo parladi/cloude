@@ -38,7 +38,7 @@ def render_html(doc: Dict[str, Any], lines: List[Dict[str, Any]]) -> str:
 <head>
 <meta charset="UTF-8">
 <style>
-  body {{ font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; margin: 0; padding: 12px; background: #fafafa; }}
+  body {{ font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; margin: 0; padding: 12px; background: #FFFFFF; color: #1A1A2E; }}
   .header {{ background: {color}; color: white; padding: 12px 16px; border-radius: 6px; margin-bottom: 14px; }}
   .header h2 {{ margin: 0 0 4px 0; font-size: 16px; }}
   .header p {{ margin: 0; font-size: 12px; opacity: 0.85; }}

@@ -29,8 +29,6 @@ def show_login(db_path: str) -> bool:
     if st.session_state.get("authenticated"):
         return True
 
-    st.set_page_config(page_title="Giriş", page_icon="🔐", layout="centered")
-
     # İlk kez kurulum mu?
     if not storage.user_exists(db_path):
         _show_setup(db_path)

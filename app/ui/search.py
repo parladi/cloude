@@ -196,9 +196,9 @@ def _export_section(db_path: str, results: List[Dict], total: int) -> None:
     ts = datetime.now().strftime("%Y%m%d_%H%M")
 
     st.markdown("---")
-    ec1, ec2 = st.columns(2)
+    st.subheader("Disa Aktar")
 
-    # Gösterim sütunları (FILE_PATH, HASH, DOC_ID gizli)
+    # Gosterim sutunlari (FILE_PATH, HASH, DOC_ID gizli)
     export_cols = [
         "DOC_TYPE", "DOC_NO", "ISSUE_DATE", "SHIP_DATE",
         "SENDER_VKN_TCKN", "RECEIVER_VKN_TCKN",
@@ -211,28 +211,34 @@ def _export_section(db_path: str, results: List[Dict], total: int) -> None:
     existing = [c for c in export_cols if c in df_export.columns]
     df_export = df_export[existing]
 
+    ec1, ec2 = st.columns(2)
+
     with ec1:
         csv_data = df_export.to_csv(index=False, encoding="utf-8-sig")
         st.download_button(
-            "CSV İndir",
+            "CSV Indir (.csv)",
             data=csv_data.encode("utf-8-sig"),
             file_name=f"export_{ts}.csv",
             mime="text/csv",
             use_container_width=True,
+            type="primary",
         )
 
     with ec2:
         if total > EXCEL_ROW_LIMIT:
-            st.warning(f"Satır sayısı ({total:,}) Excel limitini ({EXCEL_ROW_LIMIT:,}) aşıyor. CSV kullanın.")
+            st.warning(f"Satir sayisi ({total:,}) Excel limitini ({EXCEL_ROW_LIMIT:,}) asiyor. CSV kullanin.")
         else:
             excel_buf = io.BytesIO()
             with pd.ExcelWriter(excel_buf, engine="openpyxl") as writer:
                 df_export.to_excel(writer, index=False, sheet_name="Sonuclar")
             excel_buf.seek(0)
             st.download_button(
-                "Excel İndir",
+                "Excel Indir (.xlsx)",
                 data=excel_buf.getvalue(),
                 file_name=f"export_{ts}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
+                type="primary",
             )
+
+    st.caption(f"Toplam {len(results):,} satir disa aktarilacak.")
