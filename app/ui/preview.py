@@ -6,7 +6,7 @@ Ayrica kaynak XML icerigini gorsel olarak gosterir.
 import base64
 import os
 import zipfile
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -101,7 +101,7 @@ def _show_xml_content(doc: Dict) -> None:
     )
 
 
-def _read_xml_from_source(file_path: str) -> str | None:
+def _read_xml_from_source(file_path: str) -> Optional[str]:
     """
     Kaynak yolundan XML icerigini okur.
     ZIP icindeki dosyalar icin 'zip_path::entry_name' formatini destekler.

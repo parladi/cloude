@@ -8,6 +8,7 @@ Indeksleme sekmesi:
 """
 import os
 import zipfile
+from typing import List
 
 import streamlit as st
 
@@ -69,7 +70,7 @@ def show_indexing(db_path: str, cache_dir: str) -> None:
     status_box = st.empty()
     progress_bar = st.progress(0)
     log_box = st.empty()
-    logs: list[str] = []
+    logs: List[str] = []
 
     def add_log(msg: str) -> None:
         logs.append(msg)
