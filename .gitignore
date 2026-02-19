@@ -4,3 +4,8 @@ uploads/
 *.egg-info/
 .env
 venv/
+.venv/
+cache/
+*.db
+*.db-wal
+*.db-shm
