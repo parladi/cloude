@@ -1,0 +1,3 @@
+# Windows batch dosyalari icin CRLF satir sonu zorunlu
+*.bat text eol=crlf
+*.cmd text eol=crlf
