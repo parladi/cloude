@@ -11,41 +11,51 @@ async function fetchAPI(endpoint) {
   }
 }
 
+async function postAPI(endpoint, body) {
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return await res.json();
+}
+
 export const api = {
-  health:        () => fetchAPI('/health'),
+  // Baglanti
+  health:            () => fetchAPI('/health'),
+  getConnection:     () => fetchAPI('/connection'),
+  testConnection:    (config) => postAPI('/connection/test', config),
+  saveConnection:    (config) => postAPI('/connection/save', config),
+
+  // Dashboard
   summary:       () => fetchAPI('/summary'),
 
+  // Trigger
   triggers:      () => fetchAPI('/triggers'),
 
+  // Silmeler
   deletionSummary:  () => fetchAPI('/deletions/summary'),
   deletionDetail:   (table, limit = 50) => fetchAPI(`/deletions/${table}?limit=${limit}`),
   deletionRecent:   (limit = 20) => fetchAPI(`/deletions/recent?limit=${limit}`),
   deletionByPC:     () => fetchAPI('/deletions/by-computer'),
 
+  // Changelog
   changelog:     () => fetchAPI('/changelog'),
 
+  // Snapshot
   snapshot:      () => fetchAPI('/snapshot'),
 
+  // Jobs
   jobs:          () => fetchAPI('/jobs'),
 
-  executeQuery:  async (sql, database = 'TIGERDB') => {
-    try {
-      const res = await fetch(`${API_BASE}/query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sql, database }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || `HTTP ${res.status}`);
-      }
-      return await res.json();
-    } catch (error) {
-      console.error('Sorgu hatasi:', error);
-      throw error;
-    }
-  },
+  // Sorgu Editoru
+  executeQuery:  (sql, database = 'TIGERDB') => postAPI('/query', { sql, database }),
 
+  // Raporlar
   reportTimeline:  () => fetchAPI('/reports/timeline'),
   reportComputers: () => fetchAPI('/reports/risk-computers'),
 };

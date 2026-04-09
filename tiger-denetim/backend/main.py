@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import changelog, dashboard, deletions, jobs, query, reports, snapshot, triggers
+from routers import changelog, connection, dashboard, deletions, jobs, query, reports, snapshot, triggers
 
 app = FastAPI(title="Tiger Denetim API", version="1.0.0")
 
@@ -13,6 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(connection.router, prefix="/api", tags=["Connection"])
 app.include_router(dashboard.router, prefix="/api", tags=["Dashboard"])
 app.include_router(triggers.router, prefix="/api", tags=["Triggers"])
 app.include_router(deletions.router, prefix="/api", tags=["Deletions"])
