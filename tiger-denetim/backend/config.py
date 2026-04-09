@@ -14,3 +14,13 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def update_settings(server: str, port: int, user: str, password: str, database: str, database_backup: str):
+    """Baglanti ayarlarini calisma zamaninda guncelle"""
+    settings.DB_SERVER = server
+    settings.DB_PORT = port
+    settings.DB_USER = user
+    settings.DB_PASSWORD = password
+    settings.DB_NAME = database
+    settings.DB_NAME_BACKUP = database_backup

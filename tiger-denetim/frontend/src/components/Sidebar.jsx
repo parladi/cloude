@@ -11,7 +11,10 @@ const menuItems = [
   { path: '/reports',   label: 'Raporlar',        icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
 ];
 
-export default function Sidebar({ open }) {
+export default function Sidebar({ open, connInfo }) {
+  const server = connInfo?.server || '-';
+  const database = connInfo?.database || '-';
+
   return (
     <aside className={`bg-brand-100 border-r border-brand-200 transition-all duration-200 flex flex-col ${open ? 'w-64' : 'w-16'}`}>
       <div className="p-4 border-b border-brand-200">
@@ -51,8 +54,18 @@ export default function Sidebar({ open }) {
 
       {open && (
         <div className="p-4 border-t border-brand-200 text-xs text-text-secondary">
-          <p>192.168.0.9 - TIGERDB</p>
-          <p>Firma 321</p>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+            </svg>
+            <span>{server}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+            </svg>
+            <span>{database}</span>
+          </div>
         </div>
       )}
     </aside>

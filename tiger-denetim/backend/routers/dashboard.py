@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 
+from config import settings
 from database import execute_query
 from queries.sql_queries import DELETION_COUNTS, RECENT_ALL_DELETIONS, TRIGGERS_STATUS
 
@@ -17,8 +18,10 @@ def health():
             "status": "ok",
             "connected": True,
             "timestamp": datetime.now().isoformat(),
-            "server": "192.168.0.9",
-            "database": "TIGERDB",
+            "server": settings.DB_SERVER,
+            "port": settings.DB_PORT,
+            "database": settings.DB_NAME,
+            "database_backup": settings.DB_NAME_BACKUP,
         }
     except Exception as e:
         return {
