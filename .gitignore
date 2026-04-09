@@ -4,3 +4,5 @@ uploads/
 *.egg-info/
 .env
 venv/
+node_modules/
+dist/
