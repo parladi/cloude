@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title Tiger Denetim Paneli
+title Tiger Denetim Paneli v1.5
 color 0B
 
 echo.
@@ -14,56 +14,59 @@ cd /d "%~dp0"
 
 REM ---- PYTHON KONTROL ----
 echo [1/5] Python kontrol ediliyor...
-python --version >nul 2>&1
-if errorlevel 1 (
-    py --version >nul 2>&1
-    if errorlevel 1 (
-        echo.
-        echo  HATA: Python bulunamadi!
-        echo  Python 3.11+ yukleyin: https://www.python.org/downloads/
-        echo  Kurulumda "Add Python to PATH" kutusunu isaretleyin!
-        echo.
-        pause
-        exit /b 1
-    )
-    set PYTHON_CMD=py
-) else (
+where python >nul 2>&1
+if %errorlevel%==0 (
     set PYTHON_CMD=python
+    echo      Python bulundu.
+    goto :python_ok
 )
-echo      Python OK
+where py >nul 2>&1
+if %errorlevel%==0 (
+    set PYTHON_CMD=py
+    echo      Python bulundu (py).
+    goto :python_ok
+)
+echo.
+echo  !!! HATA: Python bulunamadi !!!
+echo  Python 3.11+ yukleyin: https://www.python.org/downloads/
+echo  Kurulumda "Add Python to PATH" kutusunu isaretleyin!
+echo.
+echo  Devam etmek icin bir tusa basin...
+pause >nul
+exit /b 1
+
+:python_ok
 
 REM ---- NODE KONTROL ----
 echo [2/5] Node.js kontrol ediliyor...
-node --version >nul 2>&1
-if errorlevel 1 (
+where node >nul 2>&1
+if not %errorlevel%==0 (
     echo.
-    echo  HATA: Node.js bulunamadi!
+    echo  !!! HATA: Node.js bulunamadi !!!
     echo  Node.js 18+ yukleyin: https://nodejs.org/
-    echo  LTS surumunu indirin.
     echo.
-    pause
+    echo  Devam etmek icin bir tusa basin...
+    pause >nul
     exit /b 1
 )
-echo      Node.js OK
+echo      Node.js bulundu.
 
 REM ---- BACKEND KURULUM ----
 echo [3/5] Backend hazirlaniyor...
 cd backend
 if not exist venv (
-    echo      Python venv olusturuluyor...
+    echo      Python sanal ortam olusturuluyor...
     %PYTHON_CMD% -m venv venv
-    if errorlevel 1 (
-        echo  HATA: Python venv olusturulamadi!
-        pause
+    if not exist venv (
+        echo  !!! HATA: venv olusturulamadi !!!
+        echo  Devam etmek icin bir tusa basin...
+        pause >nul
         exit /b 1
     )
 )
-call venv\Scripts\activate.bat 2>nul
-pip install -r requirements.txt --quiet 2>nul
-if errorlevel 1 (
-    echo      pip install tekrar deneniyor...
-    pip install -r requirements.txt
-)
+echo      pip install baslatiliyor...
+call venv\Scripts\activate.bat
+pip install -r requirements.txt 2>&1
 echo      Backend OK
 cd ..
 
@@ -71,12 +74,12 @@ REM ---- FRONTEND KURULUM ----
 echo [4/5] Frontend hazirlaniyor...
 cd frontend
 if not exist node_modules (
-    echo      npm install calistiriliyor (ilk sefer, biraz bekleyin)...
-    call npm install
-    if errorlevel 1 (
-        echo  HATA: npm install basarisiz!
-        echo  Node.js ve npm versiyonunuzu kontrol edin.
-        pause
+    echo      npm install baslatiliyor (ilk sefer, 1-2 dakika bekleyin)...
+    call npm install 2>&1
+    if not exist node_modules (
+        echo  !!! HATA: npm install basarisiz !!!
+        echo  Devam etmek icin bir tusa basin...
+        pause >nul
         exit /b 1
     )
 )
@@ -87,26 +90,20 @@ REM ---- CALISTIR ----
 echo [5/5] Sunucular baslatiliyor...
 echo.
 
-REM Onceki islemleri temizle
-taskkill /FI "WINDOWTITLE eq Tiger API*" /F >nul 2>&1
-taskkill /FI "WINDOWTITLE eq Tiger UI*" /F >nul 2>&1
-
-REM Backend baslat
+REM Backend baslat - cmd /k ile pencere kapanmaz
 cd backend
-start "Tiger API" cmd /c "call venv\Scripts\activate.bat && python -m uvicorn main:app --host 0.0.0.0 --port 8000 2>&1"
+start "Tiger API" cmd /k "call venv\Scripts\activate.bat && python -m uvicorn main:app --host 0.0.0.0 --port 8000"
 cd ..
 
-REM Backend icin bekle
-echo  Backend baslatiliyor...
-timeout /t 4 /nobreak >nul
+echo  Backend baslatildi, 5 saniye bekleniyor...
+timeout /t 5 /nobreak >nul
 
-REM Frontend baslat
+REM Frontend baslat - cmd /k ile pencere kapanmaz
 cd frontend
-start "Tiger UI" cmd /c "npx vite --host 2>&1"
+start "Tiger UI" cmd /k "npx vite --host"
 cd ..
 
-REM Frontend icin bekle
-echo  Frontend baslatiliyor...
+echo  Frontend baslatildi, 5 saniye bekleniyor...
 timeout /t 5 /nobreak >nul
 
 echo.
@@ -116,12 +113,14 @@ echo.
 echo   Dashboard : http://localhost:5173
 echo   API Docs  : http://localhost:8000/docs
 echo.
-echo   Kapatmak icin bu pencereyi kapatin
-echo   veya durdur.bat calistirin.
+echo   NOT: "Tiger API" ve "Tiger UI" pencerelerini
+echo   kapatmayin - sunucular orada calisiyor.
 echo  =============================================
 echo.
 
 start http://localhost:5173
 
-echo  Cikis icin bir tusa basin...
-pause >nul
+echo  Bu pencereyi kapatabilirsiniz.
+echo  Sunuculari durdurmak icin durdur.bat calistirin.
+echo.
+pause
