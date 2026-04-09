@@ -18,7 +18,7 @@ export default function StatusBar({ connected, lastRefresh, connInfo }) {
       <div>
         Son yenileme: {lastRefresh || '-'}
       </div>
-      <div>v1.0</div>
+      <div>v1.5</div>
     </footer>
   );
 }

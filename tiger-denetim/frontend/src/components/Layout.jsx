@@ -2,13 +2,11 @@ import { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import StatusBar from './StatusBar';
-import ConnectionModal from './ConnectionModal';
 
 export default function Layout({ children }) {
   const [connected, setConnected] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
   const [connInfo, setConnInfo] = useState(null);
 
   const checkHealth = async () => {
@@ -23,14 +21,10 @@ export default function Layout({ children }) {
           database: data.database,
           database_backup: data.database_backup,
         });
-        setLastRefresh(new Date().toLocaleString('tr-TR'));
-      } else {
-        // Baglanti yok — ayar ekranini goster
-        setShowSettings(true);
       }
+      setLastRefresh(new Date().toLocaleString('tr-TR'));
     } catch {
       setConnected(false);
-      setShowSettings(true);
     }
   };
 
@@ -39,7 +33,6 @@ export default function Layout({ children }) {
     const saved = localStorage.getItem('tiger_connection');
     if (saved) {
       try {
-        const config = JSON.parse(saved);
         await fetch('/api/connection/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -54,30 +47,8 @@ export default function Layout({ children }) {
     restoreSavedConnection();
   }, []);
 
-  const handleConnected = (config) => {
-    setShowSettings(false);
-    setConnected(true);
-    setConnInfo({
-      server: config.server,
-      port: config.port,
-      database: config.database,
-      database_backup: config.database_backup,
-    });
-    setLastRefresh(new Date().toLocaleString('tr-TR'));
-  };
-
-  const handleRefresh = () => {
-    window.location.reload();
-  };
-
   return (
     <div className="flex h-screen bg-brand-50">
-      {showSettings && (
-        <ConnectionModal
-          onConnected={handleConnected}
-          initialConfig={connInfo}
-        />
-      )}
       <Sidebar
         open={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
@@ -87,8 +58,7 @@ export default function Layout({ children }) {
         <Header
           connected={connected}
           connInfo={connInfo}
-          onRefresh={handleRefresh}
-          onSettings={() => setShowSettings(true)}
+          onRefresh={() => window.location.reload()}
         />
         <main className="flex-1 overflow-auto p-6">
           {children}

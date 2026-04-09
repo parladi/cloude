@@ -8,6 +8,7 @@ import SnapshotPage from './pages/SnapshotPage';
 import JobsPage from './pages/JobsPage';
 import QueryEditorPage from './pages/QueryEditorPage';
 import ReportsPage from './pages/ReportsPage';
+import ConnectionPage from './pages/ConnectionPage';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route path="/jobs" element={<JobsPage />} />
           <Route path="/sql" element={<QueryEditorPage />} />
           <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/connection" element={<ConnectionPage />} />
         </Routes>
       </Layout>
     </BrowserRouter>
