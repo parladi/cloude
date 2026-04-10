@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #F0F7FF;
+  --color-brand-100: #E3F2FD;
+  --color-brand-200: #BBDEFB;
+  --color-brand-300: #90CAF9;
+  --color-brand-400: #42A5F5;
+  --color-brand-500: #1E88E5;
+  --color-brand-600: #1565C0;
+  --color-brand-700: #0D47A1;
+  --color-success: #4CAF50;
+  --color-warning: #FF9800;
+  --color-danger: #F44336;
+  --color-text-primary: #263238;
+  --color-text-secondary: #78909C;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--color-text-primary);
+  background-color: var(--color-brand-50);
+  margin: 0;
+}
+
+@keyframes pulse-danger {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-pulse-danger {
+  animation: pulse-danger 1.5s ease-in-out infinite;
+}
+table tbody tr:nth-child(even) {
+  background-color: var(--color-brand-50);
+}
