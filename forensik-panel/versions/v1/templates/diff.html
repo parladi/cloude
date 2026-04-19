@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Karsilastirma — Forensik Panel{% endblock %}
+{% block page_title %}Karsilastirma{% endblock %}
+{% block page_subtitle %}Iki arsiv sorgusunu kiyasla{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/tabulator/tabulator.min.css') }}">
+{% endblock %}
+
+{% block content %}
+<form method="get" action="/diff/" class="bg-white rounded-lg shadow mb-4 p-4">
+  <div class="grid grid-cols-3 gap-4">
+    <div>
+      <label class="block text-xs font-medium text-slate-700 mb-1">Sol (Eski)</label>
+      <select name="left" required>
+        <option value="">— secin —</option>
+        {% for q in queries %}
+          <option value="{{ q.id }}" {% if filters.left == q.id|string %}selected{% endif %}>
+            #{{ q.id }} · {{ q.timestamp[:16] }} · {{ q.title or '(basliksiz)' }} · {{ q.database }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-700 mb-1">Sag (Yeni)</label>
+      <select name="right" required>
+        <option value="">— secin —</option>
+        {% for q in queries %}
+          <option value="{{ q.id }}" {% if filters.right == q.id|string %}selected{% endif %}>
+            #{{ q.id }} · {{ q.timestamp[:16] }} · {{ q.title or '(basliksiz)' }} · {{ q.database }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-700 mb-1">Anahtar Kolon(lar)</label>
+      <input type="text" name="key" value="{{ filters.key or '' }}" placeholder="Orn. FICHENO veya LOGICALREF">
+      <div class="text-xs text-slate-500 mt-1">Virgulle ayirin, bos birakirsaniz ilk ortak kolon kullanilir</div>
+    </div>
+  </div>
+  <div class="mt-3">
+    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded text-sm">Karsilastir</button>
+  </div>
+</form>
+
+{% if result %}
+  <div class="grid grid-cols-4 gap-4 mb-4">
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="text-xs text-slate-500">Sol toplam</div>
+      <div class="text-2xl font-bold">{{ result.summary.left_total }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="text-xs text-slate-500">Sag toplam</div>
+      <div class="text-2xl font-bold">{{ result.summary.right_total }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="text-xs text-slate-500">Sadece solda</div>
+      <div class="text-2xl font-bold text-red-600">{{ result.summary.only_in_left }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="text-xs text-slate-500">Sadece sagda</div>
+      <div class="text-2xl font-bold text-green-600">{{ result.summary.only_in_right }}</div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4 mb-4">
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="text-xs text-slate-500">Degisen</div>
+      <div class="text-2xl font-bold text-amber-600">{{ result.summary.changed }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="text-xs text-slate-500">Degismeyen</div>
+      <div class="text-2xl font-bold text-slate-600">{{ result.summary.unchanged }}</div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-lg shadow mb-4 p-4">
+    <div class="text-xs text-slate-500 mb-1">Anahtar kolon</div>
+    <div class="font-mono text-sm">{{ result.key_columns|join(', ') }}</div>
+    <div class="text-xs text-slate-500 mt-3 mb-1">Ortak kolonlar</div>
+    <div class="text-xs text-slate-600">{{ result.common_columns|join(', ') }}</div>
+  </div>
+
+  <div class="bg-white rounded-lg shadow mb-4">
+    <div class="p-3 border-b font-semibold text-sm">Sadece solda ({{ result.summary.only_in_left }})</div>
+    <div id="tab-left" style="min-height:200px"></div>
+  </div>
+
+  <div class="bg-white rounded-lg shadow mb-4">
+    <div class="p-3 border-b font-semibold text-sm">Sadece sagda ({{ result.summary.only_in_right }})</div>
+    <div id="tab-right" style="min-height:200px"></div>
+  </div>
+
+  <div class="bg-white rounded-lg shadow mb-4">
+    <div class="p-3 border-b font-semibold text-sm">Degisen ({{ result.summary.changed }})</div>
+    <div id="tab-changed" style="min-height:200px"></div>
+  </div>
+{% elif error %}
+  <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+    <div class="font-semibold text-red-900">Hata</div>
+    <pre class="text-sm text-red-700 mt-2 whitespace-pre-wrap">{{ error }}</pre>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if result %}
+<script src="{{ url_for('static', filename='vendor/tabulator/tabulator.min.js') }}"></script>
+<script>
+(function() {
+  if (typeof Tabulator === 'undefined') return;
+
+  function buildCols(rows) {
+    if (!rows || !rows.length) return [];
+    return Object.keys(rows[0]).map(function(k) {
+      return {title: k, field: k, headerFilter: "input", resizable: true};
+    });
+  }
+
+  var leftRows = {{ only_in_left_json|safe }};
+  var rightRows = {{ only_in_right_json|safe }};
+  var changedRows = {{ changed_json|safe }};
+
+  if (leftRows.length) {
+    new Tabulator("#tab-left", {
+      data: leftRows, columns: buildCols(leftRows),
+      layout: "fitDataStretch", pagination: "local", paginationSize: 25,
+      height: "300px"
+    });
+  } else {
+    document.getElementById('tab-left').innerHTML = '<div class="p-6 text-center text-slate-500">Yok</div>';
+  }
+
+  if (rightRows.length) {
+    new Tabulator("#tab-right", {
+      data: rightRows, columns: buildCols(rightRows),
+      layout: "fitDataStretch", pagination: "local", paginationSize: 25,
+      height: "300px"
+    });
+  } else {
+    document.getElementById('tab-right').innerHTML = '<div class="p-6 text-center text-slate-500">Yok</div>';
+  }
+
+  if (changedRows.length) {
+    new Tabulator("#tab-changed", {
+      data: changedRows, columns: buildCols(changedRows),
+      layout: "fitDataStretch", pagination: "local", paginationSize: 25,
+      height: "300px"
+    });
+  } else {
+    document.getElementById('tab-changed').innerHTML = '<div class="p-6 text-center text-slate-500">Yok</div>';
+  }
+})();
+</script>
+{% endif %}
+{% endblock %}

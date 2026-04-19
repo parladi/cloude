@@ -1,0 +1,30 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Secrets
+config/.env
+
+# Local data
+data/logs/*.log
+data/logs/*.log.*
+data/archive/archive.duckdb
+data/archive/archive.duckdb.wal
+data/archive/results/*.parquet
+data/output/*
+
+# Vendor (too big for git - downloaded via script)
+versions/v1/static/vendor/monaco/
+versions/v1/static/vendor/tabulator/
+scripts/tailwindcss.exe
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/

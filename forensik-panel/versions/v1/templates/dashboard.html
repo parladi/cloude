@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Panel — Forensik Panel{% endblock %}
+{% block page_title %}Panel{% endblock %}
+{% block page_subtitle %}Ozet ve son aktiviteler{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-3 gap-4 mb-6">
+
+  <div class="bg-white rounded-lg shadow p-5">
+    <div class="text-sm text-slate-500 mb-1">Baglanti</div>
+    <div class="text-2xl font-bold {{ 'text-green-600' if connection_ok else 'text-red-600' }}">
+      {{ 'Bagli' if connection_ok else 'Baglanti yok' }}
+    </div>
+    <div class="text-xs text-slate-400 mt-1">{{ default_database }}</div>
+    {% if connection_error %}
+      <div class="text-xs text-red-500 mt-2 break-words">{{ connection_error }}</div>
+    {% endif %}
+  </div>
+
+  <div class="bg-white rounded-lg shadow p-5">
+    <div class="text-sm text-slate-500 mb-1">Arsiv</div>
+    <div class="text-2xl font-bold">{{ archive_count }}</div>
+    <div class="text-xs text-slate-400 mt-1">toplam sorgu</div>
+  </div>
+
+  <div class="bg-white rounded-lg shadow p-5">
+    <div class="text-sm text-slate-500 mb-1">Hizli Baslat</div>
+    <div class="flex gap-2 mt-2">
+      <a href="/sql/" class="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">Yeni Sorgu</a>
+      <a href="/archive/" class="px-3 py-1.5 bg-slate-200 rounded text-sm">Arsiv</a>
+    </div>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow">
+  <div class="p-4 border-b">
+    <h3 class="font-semibold">Son 10 Sorgu</h3>
+  </div>
+  {% if recent_queries %}
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 border-b">
+        <tr>
+          <th class="text-left p-3">Tarih</th>
+          <th class="text-left p-3">Baslik</th>
+          <th class="text-left p-3">DB</th>
+          <th class="text-right p-3">Satir</th>
+          <th class="text-right p-3">Sure</th>
+          <th class="p-3">Durum</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for q in recent_queries %}
+        <tr class="border-b hover:bg-slate-50">
+          <td class="p-3">{{ q.timestamp[:19] }}</td>
+          <td class="p-3">
+            <a href="/archive/{{ q.id }}" class="text-blue-600 hover:underline">
+              {{ q.title or '(basliksiz)' }}
+            </a>
+          </td>
+          <td class="p-3 text-slate-600">{{ q.database }}</td>
+          <td class="p-3 text-right">{{ q.row_count }}</td>
+          <td class="p-3 text-right">{{ '%.0f'|format((q.duration_sec or 0) * 1000) }} ms</td>
+          <td class="p-3 text-center">
+            {% if q.status == 'success' %}
+              <span class="badge badge-ok">OK</span>
+            {% else %}
+              <span class="badge badge-err">Hata</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="p-8 text-center text-slate-500">
+      Henuz sorgu yok. <a href="/sql/" class="text-blue-600 hover:underline">Ilk sorgunu yaz</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

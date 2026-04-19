@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Debug — Forensik Panel{% endblock %}
+{% block page_title %}Debug{% endblock %}
+{% block page_subtitle %}Canli log, sistem bilgisi{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-2 gap-4 mb-4">
+  <div class="bg-white rounded-lg shadow p-4">
+    <h3 class="font-semibold mb-3">Sistem</h3>
+    <div class="text-sm space-y-1 font-mono">
+      <div><span class="text-slate-500">Python:</span> {{ sys_info.python }}</div>
+      <div><span class="text-slate-500">Platform:</span> {{ sys_info.platform }}</div>
+      <div><span class="text-slate-500">Working dir:</span> {{ sys_info.cwd }}</div>
+      <div><span class="text-slate-500">PID:</span> {{ sys_info.pid }}</div>
+      <div><span class="text-slate-500">Process:</span> {{ sys_info.executable }}</div>
+    </div>
+  </div>
+  <div class="bg-white rounded-lg shadow p-4">
+    <h3 class="font-semibold mb-3">Yuklu Paketler</h3>
+    <div class="text-sm space-y-1 font-mono">
+      {% for pkg, ver in packages.items() %}
+        <div><span class="text-slate-500">{{ pkg }}:</span> {{ ver }}</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow mb-4 p-4">
+  <h3 class="font-semibold mb-3">Vendor Dosyalari</h3>
+  <div class="text-sm space-y-1 font-mono">
+    {% for name, info in vendor_check.items() %}
+      <div class="flex items-center gap-2">
+        <span class="{{ 'text-green-600' if info.exists else 'text-red-600' }}">
+          {{ 'OK' if info.exists else 'YOK' }}
+        </span>
+        <span class="text-slate-500">{{ name }}:</span>
+        <span>{{ info.path }}</span>
+        {% if info.exists %}<span class="text-slate-400">({{ info.size }} byte)</span>{% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  <div class="text-xs text-slate-500 mt-3">
+    Eksik olanlar icin: <code>scripts/download_vendor.ps1</code> calistirin.
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow p-4">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="font-semibold">Canli Log</h3>
+    <div class="flex gap-2">
+      <button onclick="refreshLog()" class="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">Yenile</button>
+      <label class="text-sm flex items-center gap-1">
+        <input type="checkbox" id="autorefresh" style="width:auto"> Otomatik (5 sn)
+      </label>
+    </div>
+  </div>
+  <div id="log-box" class="log-box">Yukleniyor...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function refreshLog() {
+  var box = document.getElementById('log-box');
+  try {
+    var r = await fetch('/debug/log?lines=300');
+    var text = await r.text();
+    box.textContent = text || '(bos)';
+    box.scrollTop = box.scrollHeight;
+  } catch(e) {
+    box.textContent = 'Log okunamadi: ' + e.message;
+  }
+}
+
+var autoTimer = null;
+document.getElementById('autorefresh').addEventListener('change', function(e) {
+  if (e.target.checked) {
+    refreshLog();
+    autoTimer = setInterval(refreshLog, 5000);
+  } else {
+    clearInterval(autoTimer);
+    autoTimer = null;
+  }
+});
+
+refreshLog();
+</script>
+{% endblock %}

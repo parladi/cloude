@@ -1,0 +1,37 @@
+<aside class="w-64 bg-slate-900 text-white p-4 flex flex-col">
+  <div class="mb-6">
+    <div class="flex items-center gap-2">
+      <div class="bg-blue-600 w-10 h-10 rounded flex items-center justify-center font-bold">FP</div>
+      <div>
+        <h1 class="font-bold text-lg">Forensik Panel</h1>
+        <p class="text-xs text-slate-400">v{{ app_version }}</p>
+      </div>
+    </div>
+  </div>
+
+  <nav class="flex-1 space-y-1">
+    {% set items = [
+      ('/', 'Panel', 'P'),
+      ('/databases/', 'Veritabanlari', 'DB'),
+      ('/sql/', 'SQL Editor', 'SQL'),
+      ('/archive/', 'Arsiv', 'AR'),
+      ('/diff/', 'Karsilastirma', 'DIFF'),
+      ('/settings/', 'Ayarlar', 'S'),
+      ('/debug/', 'Debug', 'D'),
+    ] %}
+
+    {% for url, label, icon in items %}
+      {% set is_active = request.path == url or (url != '/' and request.path.startswith(url)) %}
+      <a href="{{ url }}"
+         class="flex items-center gap-3 px-3 py-2 rounded transition {{ 'bg-blue-600 text-white' if is_active else 'text-slate-300 hover:bg-slate-800' }}">
+        <span class="font-mono text-xs" style="min-width:32px;display:inline-block">{{ icon }}</span>
+        <span>{{ label }}</span>
+      </a>
+    {% endfor %}
+  </nav>
+
+  <div class="mt-6 pt-4 border-t border-slate-700 text-xs">
+    <div class="text-slate-400 mb-1">AKTIF DB</div>
+    <div class="font-mono text-slate-200">{{ default_database }}</div>
+  </div>
+</aside>
