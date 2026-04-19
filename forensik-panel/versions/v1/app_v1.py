@@ -6,9 +6,10 @@ import time
 import webbrowser
 from datetime import datetime
 
-from flask import Flask, render_template
+from flask import Flask, redirect, render_template, request, url_for
 
 from config import CONFIG, get_default_database
+from core.env_manager import is_configured
 from core.logging_setup import setup_logging
 
 
@@ -31,6 +32,7 @@ def create_app() -> Flask:
     from routes.diff import bp as diff_bp
     from routes.settings import bp as settings_bp
     from routes.debug import bp as debug_bp
+    from routes.setup import bp as setup_bp
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(databases_bp)
@@ -39,6 +41,19 @@ def create_app() -> Flask:
     app.register_blueprint(diff_bp)
     app.register_blueprint(settings_bp)
     app.register_blueprint(debug_bp)
+    app.register_blueprint(setup_bp)
+
+    # Kimlik yoksa /setup'a yönlendir
+    SETUP_FREE_PATHS = ("/setup", "/static/", "/debug/log")
+
+    @app.before_request
+    def _ensure_configured():
+        path = request.path or "/"
+        if any(path == p or path.startswith(p) for p in SETUP_FREE_PATHS):
+            return None
+        if not is_configured():
+            return redirect(url_for("setup.index"))
+        return None
 
     @app.errorhandler(404)
     def not_found(e):

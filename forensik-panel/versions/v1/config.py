@@ -23,7 +23,8 @@ def get_sql_creds():
     password = os.getenv(CONFIG["sql_server"]["password_env"])
     if not user or not password:
         raise RuntimeError(
-            "SQL kimlik bilgisi yok. config/.env dosyasini olusturun."
+            "SQL kimlik bilgisi yok. /setup sayfasindan girin "
+            "veya config/.env olusturun."
         )
     return user, password
 

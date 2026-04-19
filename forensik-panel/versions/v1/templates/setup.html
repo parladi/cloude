@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ilk Kurulum — Forensik Panel</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-6">
+
+<div class="bg-white rounded-lg shadow w-full" style="max-width:560px">
+  <div class="p-6 border-b">
+    <div class="flex items-center gap-3">
+      <div class="bg-blue-600 w-12 h-12 rounded flex items-center justify-center font-bold text-white">FP</div>
+      <div>
+        <h1 class="text-xl font-bold">Forensik Panel — Ilk Kurulum</h1>
+        <p class="text-sm text-slate-500">SQL Server baglanti bilgilerini girin</p>
+      </div>
+    </div>
+  </div>
+
+  <form id="setup-form" class="p-6 space-y-4" onsubmit="return false;">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Sunucu (Host)</label>
+        <input type="text" id="host" value="{{ defaults.host }}" required>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Port</label>
+        <input type="number" id="port" value="{{ defaults.port }}" required>
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Kullanici (sa)</label>
+      <input type="text" id="user" value="{{ defaults.user }}" autocomplete="username" required>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Sifre</label>
+      <div style="position:relative">
+        <input type="password" id="password" autocomplete="current-password" required>
+        <button type="button" onclick="togglePass()"
+                style="position:absolute;right:8px;top:6px;background:#e2e8f0;padding:4px 8px;border-radius:4px;font-size:12px">
+          Goster
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Test edilecek veritabani</label>
+      <select id="database">
+        {% for db in databases %}
+          <option value="{{ db.name }}" {% if db.name == defaults.database %}selected{% endif %}>
+            {{ db.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div id="result" class="text-sm"></div>
+
+    <div class="flex gap-2 pt-2">
+      <button type="button" id="test-btn" onclick="testConn()"
+              class="px-4 py-2 bg-slate-200 rounded font-medium hover:bg-slate-300">
+        Baglantiyi Test Et
+      </button>
+      <button type="button" id="save-btn" onclick="saveConfig()"
+              class="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700">
+        Test Et ve Kaydet
+      </button>
+    </div>
+
+    <div class="text-xs text-slate-500 pt-2 border-t">
+      Bu bilgiler <code>config/.env</code> dosyasina yazilir. Sifreler git'e gonderilmez.
+    </div>
+  </form>
+</div>
+
+<script>
+function togglePass() {
+  var p = document.getElementById('password');
+  p.type = (p.type === 'password') ? 'text' : 'password';
+}
+
+function getPayload() {
+  return {
+    host: document.getElementById('host').value.trim(),
+    port: document.getElementById('port').value.trim(),
+    user: document.getElementById('user').value.trim(),
+    password: document.getElementById('password').value,
+    database: document.getElementById('database').value
+  };
+}
+
+function setResult(html, type) {
+  var bg = {ok: 'bg-green-50 border-green-200 text-green-900',
+            err: 'bg-red-50 border-red-200 text-red-900',
+            info: 'bg-blue-50 border-blue-200 text-blue-900'}[type] || '';
+  document.getElementById('result').innerHTML =
+    '<div class="border rounded p-3 ' + bg + '">' + html + '</div>';
+}
+
+function setBusy(busy, label) {
+  document.getElementById('test-btn').disabled = busy;
+  document.getElementById('save-btn').disabled = busy;
+  if (busy) {
+    document.getElementById('save-btn').textContent = label || 'Calisiyor...';
+  } else {
+    document.getElementById('save-btn').textContent = 'Test Et ve Kaydet';
+  }
+}
+
+async function testConn() {
+  var data = getPayload();
+  if (!data.user || !data.password) {
+    setResult('Kullanici ve sifre zorunlu.', 'err');
+    return;
+  }
+  setBusy(true, 'Test ediliyor...');
+  setResult('Sunucuya baglaniliyor...', 'info');
+  try {
+    var res = await fetch('/setup/test', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+    var d = await res.json();
+    if (d.status === 'ok') {
+      setResult('<strong>Baglanti OK</strong><br>' +
+                'Sunucu: ' + (d.version || '') + '<br>' +
+                'DB: ' + (d.current_db || '') + '<br>' +
+                'Zaman: ' + (d.server_time || ''), 'ok');
+    } else {
+      setResult('<strong>Hata:</strong><pre class="text-xs mt-1 whitespace-pre-wrap">' + (d.error || 'bilinmeyen') + '</pre>', 'err');
+    }
+  } catch(e) {
+    setResult('Istek hatasi: ' + e.message, 'err');
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function saveConfig() {
+  var data = getPayload();
+  if (!data.user || !data.password) {
+    setResult('Kullanici ve sifre zorunlu.', 'err');
+    return;
+  }
+  setBusy(true, 'Test edilip kaydediliyor...');
+  setResult('Once test, sonra kayit...', 'info');
+  try {
+    var res = await fetch('/setup/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+    var d = await res.json();
+    if (d.status === 'ok') {
+      setResult('<strong>Kaydedildi.</strong> Yonlendiriliyor...', 'ok');
+      setTimeout(function() { window.location.href = '/'; }, 800);
+    } else {
+      setResult('<strong>Test basarisiz, kaydedilmedi:</strong><pre class="text-xs mt-1 whitespace-pre-wrap">' + (d.error || 'bilinmeyen') + '</pre>', 'err');
+    }
+  } catch(e) {
+    setResult('Istek hatasi: ' + e.message, 'err');
+  } finally {
+    setBusy(false);
+  }
+}
+
+// Sayfa yuklendiginde sifre alanina odaklan
+window.addEventListener('load', function() {
+  document.getElementById('password').focus();
+});
+</script>
+
+</body>
+</html>

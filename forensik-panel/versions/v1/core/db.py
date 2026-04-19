@@ -1,5 +1,6 @@
 """SQL Server bağlantı — pymssql kullanır (pyodbc DEĞİL)"""
 import logging
+import os
 from contextlib import contextmanager
 
 import pymssql
@@ -9,12 +10,26 @@ from config import CONFIG, get_sql_creds
 logger = logging.getLogger(__name__)
 
 
+def _host() -> str:
+    return os.getenv("FORENSIK_SQL_HOST") or CONFIG["sql_server"]["host"]
+
+
+def _port() -> int:
+    raw = os.getenv("FORENSIK_SQL_PORT")
+    if raw:
+        try:
+            return int(raw)
+        except ValueError:
+            pass
+    return int(CONFIG["sql_server"]["port"])
+
+
 @contextmanager
 def get_connection(database: str, timeout: int = 600):
     """Bağlantı context manager'ı"""
     user, password = get_sql_creds()
-    host = CONFIG["sql_server"]["host"]
-    port = CONFIG["sql_server"]["port"]
+    host = _host()
+    port = _port()
 
     logger.info(f"SQL bağlantı açılıyor: {host}:{port}/{database}")
 
@@ -58,6 +73,43 @@ def test_connection(database: str = None) -> dict:
         return {
             "status": "error",
             "database": db,
+            "error": str(e),
+        }
+
+
+def test_connection_with_creds(host: str, port: int, user: str, password: str,
+                                database: str, timeout: int = 10) -> dict:
+    """.env'e yazmadan, verilen kimliklerle bağlantı dene"""
+    try:
+        conn = pymssql.connect(
+            server=host,
+            port=int(port),
+            user=user,
+            password=password,
+            database=database,
+            timeout=timeout,
+            login_timeout=timeout,
+            charset="UTF-8",
+            as_dict=False,
+        )
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT @@VERSION, DB_NAME(), GETDATE()")
+            row = cur.fetchone()
+            return {
+                "status": "ok",
+                "database": database,
+                "version": str(row[0])[:120],
+                "current_db": str(row[1]),
+                "server_time": str(row[2]),
+            }
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.warning(f"Manuel bağlantı testi başarısız: {host}:{port}/{database} — {e}")
+        return {
+            "status": "error",
+            "database": database,
             "error": str(e),
         }
 
