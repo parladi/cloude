@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Ayarlar — Forensik Panel{% endblock %}
+{% block page_title %}Ayarlar{% endblock %}
+{% block page_subtitle %}Baglanti testi, arsiv yonetimi{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-2 gap-4 mb-4">
+  <div class="bg-white rounded-lg shadow p-4">
+    <h3 class="font-semibold mb-3">Uygulama</h3>
+    <div class="text-sm space-y-1">
+      <div><span class="text-slate-500">Isim:</span> {{ app_info.isim }}</div>
+      <div><span class="text-slate-500">Surum:</span> {{ app_info.surum }}</div>
+      <div><span class="text-slate-500">Port:</span> {{ app_info.port }}</div>
+    </div>
+  </div>
+  <div class="bg-white rounded-lg shadow p-4">
+    <h3 class="font-semibold mb-3">SQL Sunucu</h3>
+    <div class="text-sm space-y-1">
+      <div><span class="text-slate-500">Host:</span> <span class="font-mono">{{ sql_info.host }}:{{ sql_info.port }}</span></div>
+      <div><span class="text-slate-500">Varsayilan DB:</span> <span class="font-mono">{{ sql_info.default_database }}</span></div>
+      <div><span class="text-slate-500">Query timeout:</span> {{ sql_info.query_timeout }} sn</div>
+      <div><span class="text-slate-500">Kimlik env:</span> {{ sql_info.user_env }} / {{ sql_info.password_env }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow mb-4 p-4">
+  <h3 class="font-semibold mb-3">Baglanti Testi</h3>
+  <div class="flex items-center gap-2">
+    <select id="test-db">
+      {% for db in databases %}
+        <option value="{{ db.name }}">{{ db.name }}</option>
+      {% endfor %}
+    </select>
+    <button onclick="runTest()" class="px-4 py-2 bg-blue-600 text-white rounded text-sm whitespace-nowrap">Test Et</button>
+  </div>
+  <div id="test-result" class="mt-3 text-sm"></div>
+</div>
+
+<div class="bg-white rounded-lg shadow mb-4 p-4">
+  <h3 class="font-semibold mb-3">Arsiv Dosyalari</h3>
+  <div class="text-sm space-y-1">
+    <div><span class="text-slate-500">DuckDB yolu:</span> <span class="font-mono">{{ arsiv_info.duckdb_path }}</span></div>
+    <div><span class="text-slate-500">Parquet klasoru:</span> <span class="font-mono">{{ arsiv_info.parquet_dir }}</span></div>
+    <div><span class="text-slate-500">Toplam kayit:</span> {{ arsiv_info.query_count }}</div>
+    <div><span class="text-slate-500">Ekranda max:</span> {{ arsiv_info.max_display_rows }} satir</div>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow p-4">
+  <h3 class="font-semibold mb-3">Dosya Sistemi</h3>
+  <div class="text-sm space-y-1 font-mono">
+    <div><span class="text-slate-500">PROJECT_ROOT:</span> {{ paths.project_root }}</div>
+    <div><span class="text-slate-500">CONFIG_DIR:</span> {{ paths.config_dir }}</div>
+    <div><span class="text-slate-500">DATA_DIR:</span> {{ paths.data_dir }}</div>
+    <div><span class="text-slate-500">Log:</span> {{ paths.log_path }}</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function runTest() {
+  var db = document.getElementById('test-db').value;
+  var el = document.getElementById('test-result');
+  el.innerHTML = '<span class="text-slate-500">Test ediliyor...</span>';
+  try {
+    var r = await fetch('/databases/test?database=' + encodeURIComponent(db));
+    var d = await r.json();
+    if (d.status === 'ok') {
+      el.innerHTML =
+        '<div class="bg-green-50 border border-green-200 rounded p-3">' +
+        '<div class="font-semibold text-green-900">Baglanti OK</div>' +
+        '<div class="text-xs mt-1 text-green-700">DB: ' + d.current_db + '</div>' +
+        '<div class="text-xs text-green-700">Surum: ' + (d.version || '') + '</div>' +
+        '<div class="text-xs text-green-700">Sunucu zamani: ' + (d.server_time || '') + '</div>' +
+        '</div>';
+    } else {
+      el.innerHTML =
+        '<div class="bg-red-50 border border-red-200 rounded p-3">' +
+        '<div class="font-semibold text-red-900">Hata</div>' +
+        '<pre class="text-xs mt-1 whitespace-pre-wrap">' + (d.error || 'bilinmeyen') + '</pre>' +
+        '</div>';
+    }
+  } catch(e) {
+    el.innerHTML = '<div class="bg-red-50 border border-red-200 rounded p-3">Istek hatasi: ' + e.message + '</div>';
+  }
+}
+</script>
+{% endblock %}

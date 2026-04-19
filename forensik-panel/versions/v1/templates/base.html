@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Forensik Panel{% endblock %}</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+
+  {% block head %}{% endblock %}
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+<div class="flex min-h-screen">
+  {% include "partials/_sidebar.html" %}
+
+  <div class="flex-1 flex flex-col min-w-0">
+    {% include "partials/_topbar.html" %}
+
+    <main class="flex-1 p-6 overflow-auto">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="mb-4 p-3 rounded bg-blue-100 text-blue-900">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-white border-t p-3 text-xs text-slate-500 text-center">
+      {{ app_name }} v{{ app_version }} — PARLADI METAL
+    </footer>
+  </div>
+</div>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}500 — Sunucu Hatasi{% endblock %}
+{% block page_title %}500{% endblock %}
+{% block content %}
+<div class="bg-white rounded-lg shadow p-8 text-center">
+  <div class="text-3xl font-bold mb-2 text-red-600">Sunucu Hatasi</div>
+  <p class="text-slate-500 mb-4">Bir hata olustu. Log dosyasini inceleyin: data/logs/app.log</p>
+  <a href="/debug/" class="px-4 py-2 bg-slate-800 text-white rounded inline-block">Debug Sayfasi</a>
+</div>
+{% endblock %}

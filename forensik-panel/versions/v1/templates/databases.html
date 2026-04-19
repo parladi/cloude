@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Veritabanlari — Forensik Panel{% endblock %}
+{% block page_title %}Veritabanlari{% endblock %}
+{% block page_subtitle %}Yedek SQL Server veritabanlari{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow">
+  <div class="p-4 border-b flex items-center justify-between">
+    <h3 class="font-semibold">12 Yedek Veritabani</h3>
+    <button onclick="testAll()" class="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">
+      Hepsini Test Et
+    </button>
+  </div>
+
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 border-b">
+      <tr>
+        <th class="text-left p-3">Veritabani</th>
+        <th class="text-left p-3">Aciklama</th>
+        <th class="p-3">Varsayilan</th>
+        <th class="p-3">Baglanti</th>
+        <th class="p-3">Islemler</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for db in databases %}
+      <tr class="border-b hover:bg-slate-50">
+        <td class="p-3 font-mono">{{ db.name }}</td>
+        <td class="p-3 text-slate-600">{{ db.aciklama }}</td>
+        <td class="p-3 text-center">
+          {% if db.get('varsayilan') %}
+            <span class="badge badge-info">varsayilan</span>
+          {% endif %}
+        </td>
+        <td class="p-3 text-center">
+          <span id="status-{{ loop.index0 }}" class="badge badge-warn">?</span>
+        </td>
+        <td class="p-3 text-center">
+          <button onclick="testOne('{{ db.name }}', {{ loop.index0 }})"
+                  class="px-2 py-1 bg-slate-200 rounded text-xs">Test</button>
+          <a href="/sql/?database={{ db.name }}"
+             class="px-2 py-1 bg-blue-600 text-white rounded text-xs ml-2 inline-block">SQL</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function testOne(dbName, idx) {
+  var cell = document.getElementById('status-' + idx);
+  cell.textContent = '...';
+  cell.className = 'badge badge-warn';
+  try {
+    var res = await fetch('/databases/test?database=' + encodeURIComponent(dbName));
+    var data = await res.json();
+    if (data.status === 'ok') {
+      cell.textContent = 'OK';
+      cell.className = 'badge badge-ok';
+      cell.title = data.version || '';
+    } else {
+      cell.textContent = 'HATA';
+      cell.className = 'badge badge-err';
+      cell.title = data.error || '';
+    }
+  } catch(e) {
+    cell.textContent = 'HATA';
+    cell.className = 'badge badge-err';
+    cell.title = e.message;
+  }
+}
+
+async function testAll() {
+  var rows = document.querySelectorAll('tbody tr');
+  for (var i = 0; i < rows.length; i++) {
+    var cells = rows[i].querySelectorAll('td');
+    var dbName = cells[0].textContent.trim();
+    await testOne(dbName, i);
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}SQL Editor — Forensik Panel{% endblock %}
+{% block page_title %}SQL Editor{% endblock %}
+{% block page_subtitle %}Sorgu yaz, calistir, sonucu indir{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/tabulator/tabulator.min.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<div class="bg-white rounded-lg shadow mb-4 p-4">
+  <div class="grid grid-cols-3 gap-4 mb-4">
+    <div>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Aktif DB</label>
+      <select name="database" id="db-select">
+        {% for db in databases %}
+          <option value="{{ db.name }}" {% if db.name == selected_db %}selected{% endif %}>
+            {{ db.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Baslik</label>
+      <input type="text" name="title" id="title-input"
+             value="{{ rerun_title or '' }}"
+             placeholder="Orn. PARLADI Fatura Orijinal">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Aciklama</label>
+      <input type="text" name="description" id="desc-input"
+             value="{{ rerun_desc or '' }}"
+             placeholder="Istege bagli">
+    </div>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow mb-4">
+  <div class="flex items-center justify-between p-3 border-b">
+    <div class="flex items-center gap-3">
+      <span class="font-semibold text-sm">SQL Sorgusu</span>
+      <span class="text-xs text-slate-500">(sadece SELECT)</span>
+    </div>
+    <div id="editor-status" class="text-xs text-slate-500">Yukleniyor...</div>
+  </div>
+
+  <div id="editor-container" style="height: 300px; width: 100%;"></div>
+
+  <textarea id="editor-fallback"
+            style="display:none; width:100%; height:300px; padding:12px; font-family:'Consolas',monospace; font-size:14px; border:none; outline:none; resize:vertical;"
+            placeholder="SELECT TOP 10 * FROM LG_321_01_INVOICE WITH (NOLOCK)"></textarea>
+</div>
+
+<div class="flex gap-2 mb-4">
+  <button id="run-btn" onclick="runQuery()"
+          class="px-6 py-2.5 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 transition">
+    Calistir (Ctrl+Enter)
+  </button>
+  <button id="cancel-btn" onclick="cancelQuery()" style="display:none"
+          class="px-4 py-2.5 bg-red-600 text-white rounded font-medium">
+    Iptal
+  </button>
+  <button onclick="clearEditor()"
+          class="px-4 py-2.5 bg-slate-200 rounded font-medium hover:bg-slate-300">
+    Temizle
+  </button>
+  <button onclick="loadExample()"
+          class="px-4 py-2.5 bg-slate-200 rounded font-medium hover:bg-slate-300">
+    Ornek Yukle
+  </button>
+</div>
+
+<div id="result-area">
+  <div class="bg-slate-100 text-center text-slate-500 p-8 rounded-lg">
+    Henuz sonuc yok. Sorguyu yazip <strong>Calistir</strong>'a bas.
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script src="{{ url_for('static', filename='vendor/tabulator/tabulator.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/monaco/min/vs/loader.js') }}"></script>
+
+<script>
+window.monacoEditor = null;
+window.usingFallback = false;
+var currentController = null;
+
+var DEFAULT_SQL = {{ (rerun_sql or 'SELECT TOP 10 * FROM LG_321_01_INVOICE WITH (NOLOCK)')|tojson }};
+
+(function initEditor() {
+  var statusEl = document.getElementById('editor-status');
+  var containerEl = document.getElementById('editor-container');
+  var fallbackEl = document.getElementById('editor-fallback');
+
+  var timeoutId = setTimeout(function() {
+    console.warn('Monaco zaman asimi — fallback textarea kullanilacak');
+    useFallback('Zaman asimi');
+  }, 8000);
+
+  try {
+    if (typeof require === 'undefined') {
+      clearTimeout(timeoutId);
+      useFallback('Loader yuklenemedi');
+      return;
+    }
+
+    require.config({
+      paths: {
+        vs: "{{ url_for('static', filename='vendor/monaco/min/vs') }}"
+      }
+    });
+
+    require(['vs/editor/editor.main'], function() {
+      clearTimeout(timeoutId);
+
+      try {
+        window.monacoEditor = monaco.editor.create(containerEl, {
+          value: DEFAULT_SQL,
+          language: 'sql',
+          theme: 'vs',
+          automaticLayout: true,
+          minimap: { enabled: false },
+          fontSize: 14,
+          scrollBeyondLastLine: false,
+          wordWrap: 'on',
+          lineNumbers: 'on'
+        });
+
+        window.monacoEditor.addCommand(
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+          function() { runQuery(); }
+        );
+
+        statusEl.textContent = 'Monaco hazir';
+        statusEl.className = 'text-xs text-green-600';
+      } catch (e) {
+        console.error('Monaco create error:', e);
+        useFallback('Init hatasi: ' + e.message);
+      }
+    }, function(err) {
+      clearTimeout(timeoutId);
+      console.error('Monaco require error:', err);
+      useFallback('Yukleme hatasi');
+    });
+  } catch (e) {
+    clearTimeout(timeoutId);
+    console.error('Monaco exception:', e);
+    useFallback('Exception: ' + e.message);
+  }
+
+  function useFallback(reason) {
+    window.usingFallback = true;
+    containerEl.style.display = 'none';
+    fallbackEl.style.display = 'block';
+    if (!fallbackEl.value) fallbackEl.value = DEFAULT_SQL;
+    statusEl.textContent = 'Basit editor (Monaco: ' + reason + ')';
+    statusEl.className = 'text-xs text-amber-600';
+
+    fallbackEl.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        runQuery();
+      }
+    });
+  }
+})();
+
+function getSQL() {
+  if (window.usingFallback) {
+    return document.getElementById('editor-fallback').value;
+  }
+  if (window.monacoEditor) {
+    return window.monacoEditor.getValue();
+  }
+  return '';
+}
+
+function setSQL(value) {
+  if (window.usingFallback) {
+    document.getElementById('editor-fallback').value = value;
+  } else if (window.monacoEditor) {
+    window.monacoEditor.setValue(value);
+  }
+}
+
+function clearEditor() {
+  setSQL('');
+}
+
+function loadExample() {
+  setSQL("-- Son 10 faturayi goster\nSELECT TOP 10 FICHENO, DATE_, NETTOTAL\nFROM LG_321_01_INVOICE WITH (NOLOCK)\nORDER BY DATE_ DESC");
+}
+
+async function runQuery() {
+  var sql = getSQL().trim();
+  if (!sql) {
+    alert('Lutfen SQL yazin');
+    return;
+  }
+
+  var runBtn = document.getElementById('run-btn');
+  var cancelBtn = document.getElementById('cancel-btn');
+  var resultArea = document.getElementById('result-area');
+  var database = document.getElementById('db-select').value;
+  var title = document.getElementById('title-input').value;
+  var description = document.getElementById('desc-input').value;
+
+  runBtn.disabled = true;
+  runBtn.textContent = 'Calisiyor...';
+  cancelBtn.style.display = 'inline-block';
+
+  var startTime = Date.now();
+  var timerId = setInterval(function() {
+    var elapsed = Math.floor((Date.now() - startTime) / 1000);
+    runBtn.textContent = 'Calisiyor... ' + elapsed + ' sn';
+  }, 1000);
+
+  resultArea.innerHTML =
+    '<div class="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">' +
+    '<div class="text-blue-900 font-semibold">Sorgu calisiyor...</div>' +
+    '<div class="text-sm text-blue-700 mt-1">Buyuk sorgular 1-5 dakika surebilir</div>' +
+    '</div>';
+
+  currentController = new AbortController();
+
+  var formData = new FormData();
+  formData.append('sql', sql);
+  formData.append('database', database);
+  formData.append('title', title);
+  formData.append('description', description);
+
+  try {
+    var response = await fetch('/sql/execute', {
+      method: 'POST',
+      body: formData,
+      signal: currentController.signal
+    });
+
+    var html = await response.text();
+    resultArea.innerHTML = html;
+
+    resultArea.querySelectorAll('script').forEach(function(oldScript) {
+      var newScript = document.createElement('script');
+      Array.from(oldScript.attributes).forEach(function(attr) {
+        newScript.setAttribute(attr.name, attr.value);
+      });
+      newScript.textContent = oldScript.textContent;
+      oldScript.parentNode.replaceChild(newScript, oldScript);
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      resultArea.innerHTML = '<div class="bg-amber-50 border border-amber-200 rounded-lg p-4"><strong>Iptal edildi</strong></div>';
+    } else {
+      resultArea.innerHTML = '<div class="bg-red-50 border border-red-200 rounded-lg p-4"><strong>Baglanti hatasi:</strong><pre class="mt-2 text-sm">' + err.message + '</pre></div>';
+    }
+  } finally {
+    clearInterval(timerId);
+    runBtn.disabled = false;
+    runBtn.textContent = 'Calistir (Ctrl+Enter)';
+    cancelBtn.style.display = 'none';
+    currentController = null;
+  }
+}
+
+function cancelQuery() {
+  if (currentController) {
+    currentController.abort();
+  }
+}
+
+async function copyMd(queryId) {
+  try {
+    var resp = await fetch('/archive/' + queryId + '/download?format=md');
+    var text = await resp.text();
+    await navigator.clipboard.writeText(text);
+    alert('Markdown panoya kopyalandi');
+  } catch(e) {
+    alert('Hata: ' + e.message);
+  }
+}
+</script>
+
+{% endblock %}

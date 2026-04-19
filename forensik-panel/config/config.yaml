@@ -1,0 +1,48 @@
+uygulama:
+  isim: "Forensik Panel"
+  surum: "1.0.0"
+  port: 5151
+
+sql_server:
+  host: "localhost"
+  port: 1433
+  user_env: FORENSIK_SQL_USER
+  password_env: FORENSIK_SQL_PASS
+  default_database: "TIGERDB_20260416"
+  query_timeout: 600
+
+  databases:
+    - name: "TIGERDB_2026"
+      aciklama: "Master DB"
+    - name: "TIGERDB_20260416"
+      aciklama: "16 Nisan 2026 yedeği — KRİTİK"
+      varsayilan: true
+    - name: "TIGERDB_20251226"
+      aciklama: "26 Aralık 2025"
+    - name: "TIGERDB_20251218"
+      aciklama: "18 Aralık 2025"
+    - name: "TIGERDB_20250624"
+      aciklama: "24 Haziran 2025"
+    - name: "TIGERDB_20250129"
+      aciklama: "29 Ocak 2025"
+    - name: "TIGERDB_30102024"
+      aciklama: "30 Ekim 2024"
+    - name: "TIGERDB_20240604"
+      aciklama: "4 Haziran 2024"
+    - name: "TIGERDB_20240123"
+      aciklama: "23 Ocak 2024"
+    - name: "TIGERDB_230510"
+      aciklama: "10 Mayıs 2023"
+    - name: "TIGERDB_20122022"
+      aciklama: "20 Aralık 2022"
+    - name: "TIGERDB_20220410"
+      aciklama: "10 Nisan 2022"
+
+arsiv:
+  max_display_rows: 1000
+  duckdb_path: "C:/forensik-panel/data/archive/archive.duckdb"
+  parquet_dir: "C:/forensik-panel/data/archive/results"
+
+output:
+  dir: "C:/forensik-panel/data/output"
+  csv_encoding: "utf-8-sig"
